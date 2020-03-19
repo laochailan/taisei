@@ -13,11 +13,9 @@
 
 #include "boss.h"
 
-void stage3_midboss_nonspell1(Boss *boss, int time);
-void stage3_boss_nonspell1(Boss *boss, int time);
-void stage3_boss_nonspell2(Boss *boss, int time);
-void stage3_boss_nonspell3(Boss *boss, int time);
-
 DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_midboss_nonspell_1, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_boss_nonspell_1, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_boss_nonspell_2, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_boss_nonspell_3, BossAttack);
 
 #endif // IGUARD_stages_stage3_nonspells_nonspells_h

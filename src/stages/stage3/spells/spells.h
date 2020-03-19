@@ -13,10 +13,10 @@
 
 #include "boss.h"
 
-void scuttle_deadly_dance(Boss*, int t);
-void wriggle_moonlight_rocket(Boss*, int t);
-void wriggle_night_ignite(Boss*, int t);
-void wriggle_firefly_storm(Boss*, int t);
-void wriggle_light_singularity(Boss*, int t);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_spell_firefly_storm, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_spell_light_singularity, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_spell_moonlight_rocket, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_spell_night_ignite, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage3_spell_deadly_dance, BossAttack);
 
 #endif // IGUARD_stages_stage3_spells_spells_h
