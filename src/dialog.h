@@ -64,6 +64,18 @@ typedef struct Dialog {
 		DialogTextBuffer *fading_out;
 	} text;
 
+	struct {
+		const char *name;
+		const char *text;
+		bool active;
+		int timeout;
+		struct {
+			float opacity;
+		} box, box_text;
+	} title;
+
+	Color title_color;
+
 	COEVENTS_ARRAY(
 		skip_requested,
 		fadeout_began,
@@ -128,6 +140,9 @@ void dialog_update(Dialog *d)
 void dialog_draw(Dialog *d);
 
 bool dialog_page(Dialog *d)
+	attr_nonnull_all;
+
+void dialog_show_title(Dialog *d, DialogActor *actor, char *name, char *title)
 	attr_nonnull_all;
 
 bool dialog_is_active(Dialog *d);
