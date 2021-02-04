@@ -143,9 +143,10 @@ DEFINE_EXTERN_TASK(wriggle_slave_follow) {
 	for(;(boss = ENT_UNBOX(ARGS.boss)); YIELD) {
 		real t = global.frames - slave->spawn_time;
 		move.attraction_point = boss->pos + 100 * sin(t / 100) * dir;
-// 		log_debug("%f %f", creal(move.attraction_point), cimag(move.attraction_point));
 		move_update(&slave->pos, &move);
-		// slave->pos = move.attraction_point;
+		if(ARGS.out_dir) {
+			*ARGS.out_dir = dir;
+		}
 		dir *= r;
 	}
 }
