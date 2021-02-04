@@ -12,5 +12,6 @@
 #include "taisei.h"
 
 #define ENTITIES_STAGE3(X, ...) \
+	X(WriggleSlave, __VA_ARGS__) \
 
 #endif // IGUARD_stages_stage3_entities_h

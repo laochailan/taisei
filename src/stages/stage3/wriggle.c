@@ -45,228 +45,107 @@ Boss *stage3_spawn_wriggle(cmplx pos) {
 	return wriggle;
 }
 
-void wriggle_slave_visual(Enemy *e, int time, bool render) {
-	if(time < 0)
-		return;
+static void wriggle_slave_draw(EntityInterface *e) {
+	WriggleSlave *slave = ENT_CAST(e, WriggleSlave);
+	int time = global.frames - slave->spawn_time;
+	r_draw_sprite(&(SpriteParams) {
+		.pos.as_cmplx = slave->pos,
+		.sprite_ptr = slave->sprites.circle,
+		.rotation.angle = DEG2RAD * 7 * time,
+		.scale.as_cmplx = slave->scale,
+		.color = &slave->color,
+	});
+}
 
-	if(render) {
-		r_draw_sprite(&(SpriteParams) {
-			.sprite = "fairy_circle",
-			.rotation.angle = DEG2RAD * 7 * time,
-			.scale.both = 0.7,
-			.color = RGBA(0.8, 1.0, 0.4, 0),
-			.pos = { creal(e->pos), cimag(e->pos) },
-		});
-	} else if(time % 5 == 0) {
-		tsrand_fill(2);
+TASK(wriggle_slave_particles, { BoxedWriggleSlave slave; }) {
+	WriggleSlave *slave = TASK_BIND(ARGS.slave);
+
+	int period = 5;
+	WAIT(rng_irange(0, period));
+
+	for(;;WAIT(period)) {
+		cmplx vel = 2 * rng_dir();
+
 		PARTICLE(
-			.sprite = "smoothdot",
-			.pos = 5*cexp(2*I*M_PI*afrand(0)),
+			.sprite_ptr = slave->sprites.particle,
+			.pos = slave->pos,
 			.color = RGBA(0.6, 0.6, 0.5, 0),
-			.draw_rule = Shrink,
-			.rule = enemy_flare,
-			.timeout = 60,
-			.args = {
-				0.3*cexp(2*M_PI*I*afrand(1)),
-				add_ref(e),
-			},
+			.draw_rule = pdraw_timeout_scale(2, 0.01),
+			.timeout = 20,
+			.move = move_linear(vel),
 		);
 	}
 }
 
-DEPRECATED_DRAW_RULE
-static void wriggle_slave_part_draw(Projectile *p, int t, ProjDrawRuleArgs args) {
-	float b = 1 - t / (double)p->timeout;
-	r_mat_mv_push();
-	r_mat_mv_translate(creal(p->pos), cimag(p->pos), 0);
-	ProjDrawCore(p, color_mul_scalar(COLOR_COPY(&p->color), b));
-	r_mat_mv_pop();
+void stage3_init_wriggle_slave(WriggleSlave *slave, cmplx pos) {
+	slave->pos = pos;
+	slave->spawn_time = global.frames;
+	slave->ent.draw_layer = LAYER_BOSS - 1;
+	slave->ent.draw_func = wriggle_slave_draw;
+	slave->sprites.circle = res_sprite("fairy_circle");
+	slave->sprites.particle = res_sprite("part/smoothdot");
+
+	INVOKE_TASK(wriggle_slave_particles, ENT_BOX(slave));
 }
 
-static int wriggle_rocket_laserbullet(Projectile *p, int time) {
-	if(time == EVENT_DEATH) {
-		free_ref(p->args[0]);
-		return ACTION_ACK;
-	} else if(time < 0) {
-		return ACTION_ACK;
-	}
+WriggleSlave *stage3_host_wriggle_slave(cmplx pos) {
+	WriggleSlave *slave = TASK_HOST_ENT(WriggleSlave);
+	TASK_HOST_EVENTS(slave->events);
+	stage3_init_wriggle_slave(slave, pos);
 
-	if(time >= creal(p->args[1])) {
-		if(p->args[2]) {
-			cmplx dist = global.plr.pos - p->pos;
-			cmplx accel = (0.1 + 0.2 * (global.diff / (float)D_Lunatic)) * dist / cabs(dist);
-			float deathtime = sqrt(2*cabs(dist)/cabs(accel));
+	// TODO spawn animation
+	// INVOKE_TASK(wriggle_slave_fadein, ENT_BOX(slave));
+	slave->color = *RGBA(0.8, 1.0, 0.4, 0);
+	slave->scale = (1 + I) * 0.7;
 
-			Laser *l = create_lasercurve2c(p->pos, deathtime, deathtime, RGBA(0.4, 0.9, 1.0, 0.0), las_accel, 0, accel);
-			l->width = 15;
+	// TODO despawn animation
+	// INVOKE_TASK_AFTER(&slave->events.despawned, wriggle_slave_fadeout, ENT_BOX(slave));
 
-			PROJECTILE(
-				.proto = p->proto,
-				.pos = p->pos,
-				.color = &p->color,
-				.draw_rule = p->draw_rule,
-				.rule = wriggle_rocket_laserbullet,
-				.args = {
-					add_ref(l),
-					deathtime,
-				}
-			);
-
-			play_sound("redirect");
-			play_sound("shot_special1");
-		} else {
-			int cnt = 22, i;
-			float rot = (global.frames - global.boss->current->starttime) * 0.0037 * (global.diff);
-			Color *c = HSLA(fmod(rot, M_PI*2)/(M_PI/2), 1.0, 0.5, 0);
-
-			for(i = 0; i < cnt; ++i) {
-				float f = (float)i/cnt;
-
-				PROJECTILE(
-					.proto = pp_thickrice,
-					.pos = p->pos,
-					.color = c,
-					.rule = asymptotic,
-					.args = {
-						(1.0 + psin(M_PI*18*f)) * cexp(I*(2.0*M_PI*f+rot)),
-						2 + 2 * global.diff
-					},
-				);
-			}
-
-			PARTICLE(
-				.proto = pp_blast,
-				.pos = p->pos,
-				.color = c,
-				.timeout = 35 - 5 * frand(),
-				.draw_rule = GrowFade,
-				.args = { 0, 1 + 0.5 * frand() },
-				.angle = M_PI * 2 * frand(),
-			);
-
-			// FIXME: better sound
-			play_sound("enemydeath");
-			play_sound("shot1");
-			play_sound("shot3");
-		}
-
-		return ACTION_DESTROY;
-	}
-
-	Laser *laser = (Laser*)REF(p->args[0]);
-
-	if(!laser)
-		return ACTION_DESTROY;
-
-	p->pos = laser->prule(laser, time);
-
-	return 1;
+	return slave;
 }
 
-int wriggle_spell_slave(Enemy *e, int time) {
-	TIMER(&time)
+void stage3_despawn_wriggle_slave(WriggleSlave *slave) {
+	coevent_signal_once(&slave->events.despawned);
+}
 
-	float angle = e->args[2] * (time / 70.0 + e->args[1]);
-	cmplx dir = cexp(I*angle);
-	Boss *boss = (Boss*)REF(e->args[0]);
+DEFINE_EXTERN_TASK(wriggle_slave_damage_trail) {
+	WriggleSlave *slave = TASK_BIND(ARGS.slave);
+	ShaderProgram *pshader = res_shader("sprite_default");
 
-	if(!boss)
-		return ACTION_DESTROY;
-
-	AT(EVENT_BIRTH) {
-		e->ent.draw_layer = LAYER_BULLET - 1;
-	}
-
-	AT(EVENT_DEATH) {
-		free_ref(e->args[0]);
-		return 1;
-	}
-
-	GO_TO(e, boss->pos + 100 * sin(time / 100.0) * dir, 0.03)
-
-	if(!(time % 2)) {
-		float c = 0.5 * psin(time / 25.0);
+	for(;;WAIT(2)) {
+		float t = (global.frames - slave->spawn_time) / 25.0;
+		float c = 0.5f * psinf(t);
 
 		PROJECTILE(
-			// FIXME: add prototype, or shove it into the basic ones somehow,
-			// or just replace this with some thing else
-			.sprite_ptr = get_sprite("part/smoothdot"),
+			// XXX: Do we want this to be a special snowflake without a ProjPrototype?
+			.sprite_ptr = slave->sprites.particle,
 			.size = 16 + 16*I,
 			.collision_size = 7.2 + 7.2*I,
 
-			.pos = e->pos,
+			.pos = slave->pos,
 			.color = RGBA(1.0 - c, 0.5, 0.5 + c, 0),
-			.draw_rule = wriggle_slave_part_draw,
+			.draw_rule = pdraw_timeout_fade(1, 0),
 			.timeout = 60,
-			.shader = "sprite_default",
+			.shader_ptr = pshader,
 			.flags = PFLAG_NOCLEAR | PFLAG_NOCLEAREFFECT | PFLAG_NOCOLLISIONEFFECT | PFLAG_NOSPAWNEFFECTS,
 		);
 	}
+}
 
-	// moonlight rocket rockets
-	int rocket_period = (160 + 20 * (D_Lunatic - global.diff));
+DEFINE_EXTERN_TASK(wriggle_slave_follow) {
+	WriggleSlave *slave = TASK_BIND(ARGS.slave);
+	Boss *boss = NOT_NULL(ENT_UNBOX(ARGS.boss));
 
-	if(!creal(e->args[3]) && !((time + rocket_period/2) % rocket_period)) {
-		Laser *l;
-		float dt = 60;
+	MoveParams move = move_towards(0, 0.03);
+	cmplx dir = cdir(ARGS.rot_initial);
+	cmplx r = cdir(ARGS.rot_speed);
 
-		l = create_lasercurve4c(e->pos, dt, dt, RGBA(1.0, 1.0, 0.5, 0.0), las_sine_expanding, 2.5*dir, M_PI/20, 0.2, 0);
-		PROJECTILE(
-			.proto = pp_ball,
-			.pos = e->pos,
-			.color = RGB(1.0, 0.4, 0.6),
-			.rule = wriggle_rocket_laserbullet,
-			.args = {
-				add_ref(l), dt-1, 1
-			}
-		);
-
-		l = create_lasercurve4c(e->pos, dt, dt, RGBA(0.5, 1.0, 0.5, 0.0), las_sine_expanding, 2.5*dir, M_PI/20, 0.2, M_PI);
-		PROJECTILE(
-			.proto = pp_ball,
-			.pos = e->pos,
-			.color = RGB(1.0, 0.4, 0.6),
-			.rule = wriggle_rocket_laserbullet,
-			.args = {
-				add_ref(l), dt-1, 1
-			},
-		);
-
-		play_sound("laser1");
+	for(;(boss = ENT_UNBOX(ARGS.boss)); YIELD) {
+		real t = global.frames - slave->spawn_time;
+		move.attraction_point = boss->pos + 100 * sin(t / 100) * dir;
+// 		log_debug("%f %f", creal(move.attraction_point), cimag(move.attraction_point));
+		move_update(&slave->pos, &move);
+		// slave->pos = move.attraction_point;
+		dir *= r;
 	}
-
-	// night ignite balls
-	if(creal(e->args[3]) && global.diff > D_Easy) {
-		FROM_TO(300, 1000000, 180) {
-			int cnt = 5, i;
-			for(i = 0; i < cnt; ++i) {
-				PROJECTILE(
-					.proto = pp_ball,
-					.pos = e->pos,
-					.color = RGBA(0.5, 1.0, 0.5, 0),
-					.rule = accelerated,
-					.args = {
-						0, 0.02 * cexp(I*i*2*M_PI/cnt)
-					},
-				);
-
-				if(global.diff > D_Hard) {
-					PROJECTILE(
-						.proto = pp_ball,
-						.pos = e->pos,
-						.color = RGBA(1.0, 1.0, 0.5, 0),
-						.rule = accelerated,
-						.args = {
-							0, 0.01 * cexp(I*i*2*M_PI/cnt)
-						},
-					);
-				}
-			}
-
-			// FIXME: better sound
-			play_sound("shot_special1");
-		}
-	}
-
-	return 1;
 }
