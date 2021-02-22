@@ -105,9 +105,9 @@ TASK(rocket, { BoxedBoss boss; cmplx pos; cmplx dir; Color color; real phase; re
 	);
 
 	// FIXME: better sound
-	play_sound("enemydeath");
-	play_sound("shot1");
-	play_sound("shot1_special");
+	play_sfx("enemydeath");
+	play_sfx("shot1");
+	play_sfx("shot1_special");
 
 	kill_projectile(p);
 }
@@ -133,7 +133,7 @@ TASK(rocket_slave, { BoxedBoss boss; real rot_speed; real rot_initial; }) {
 	WAIT(rperiod/2);
 
 	for(;;WAIT(rperiod)) {
-		play_sound("laser1");
+		play_sfx("laser1");
 		INVOKE_TASK(rocket, ENT_BOX(boss), slave->pos, dir, *RGBA(1.0, 1.0, 0.5, 0.0), 0, laccel);
 		INVOKE_TASK(rocket, ENT_BOX(boss), slave->pos, dir, *RGBA(0.5, 1.0, 0.5, 0.0), M_PI, laccel);
 	}
