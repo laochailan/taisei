@@ -147,9 +147,8 @@ DEFINE_EXTERN_TASK(stage3_spell_moonlight_rocket) {
 	int nslaves = difficulty_value(2, 3, 4, 5);
 
 	for(int i = 0; i < nslaves; ++i) {
-		for(int s = -1; s < 2; s += 2) {
-			INVOKE_SUBTASK(rocket_slave, ENT_BOX(boss), s/70.0, s*i*M_TAU/nslaves);
-		}
+		INVOKE_SUBTASK(rocket_slave, ENT_BOX(boss),  1/70.0,  i*M_TAU/nslaves);
+		INVOKE_SUBTASK(rocket_slave, ENT_BOX(boss), -1/70.0, -i*M_TAU/nslaves);
 	}
 
 	// keep subtasks alive
