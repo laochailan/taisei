@@ -366,24 +366,6 @@ static int stage5_superbullet(Enemy *e, int t) {
 	return 1;
 }
 
-TASK(greeter_fairy_attack, {
-		BoxedEnemy e;
-		int count;
-}) {
-	Enemy *e = TASK_BIND(ARGS.e);
-	cmplx dir = cnormalize(global.plr.pos - e->pos);
-
-	for(int i = -ARGS.count; i <= ARGS.count; i++) {
-		PROJECTILE(
-			.proto = pp_bullet,
-			.pos = e->pos,
-			.color = RGB(0.0, 0.0, 1.0),
-			.move = move_asymptotic_simple(3.5 * cdir(carg(dir) + 0.06 * i), 5),
-		);
-		play_sfx("shot1");
-	}
-}
-
 TASK(greeter_fairy, {
 		cmplx pos;
 		MoveParams move_enter;
@@ -391,20 +373,27 @@ TASK(greeter_fairy, {
 }) {
 	Enemy *e = TASK_BIND(espawn_fairy_blue_box(ARGS.pos, ITEMS(.points = 1)));
 	e->move = ARGS.move_enter;
+	real speed = difficulty_value(3.5, 3.5, 3.5, 4.5);
+	real count = difficulty_value(1, 2, 3, 4);
 
+	WAIT(80);
 	for (int i = 0; i < 5; i++) {
-		INVOKE_SUBTASK_DELAYED(80, greeter_fairy_attack, {
-			.e = ENT_BOX(e),
-			.count = difficulty_value(1, 2, 3, 4),
-		});
+		cmplx dir = cnormalize(global.plr.pos - e->pos);
+		for(int i = -count; i <= count; i++) {
+			PROJECTILE(
+				.proto = pp_bullet,
+				.pos = e->pos,
+				.color = RGB(0.0, 0.0, 1.0),
+				.move = move_asymptotic_simple(speed * dir * cdir(0.06 * i), 5),
+			);
+			play_sfx("shot1");
+		}
 		WAIT(20);
 	}
 
-	WAIT(200);
+	WAIT(20);
 
 	e->move = ARGS.move_exit;
-
-	STALL;
 }
 
 TASK(greeter_fairies_3, {
