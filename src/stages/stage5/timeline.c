@@ -41,38 +41,6 @@ static void stage5_dialog_post_midboss(void) {
 	INVOKE_TASK_INDIRECT(Stage5PostMidBossDialog, pm->dialog->Stage5PostMidBoss);
 }
 
-static int stage5_lightburst(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 4, ITEM_POWER, 2);
-		return 1;
-	}
-
-	FROM_TO(0, 70, 1) {
-		GO_TO(e, e->pos0 + e->args[0] * 70, 0.05);
-	}
-
-	if(t > 200)
-		e->pos += e->args[0];
-
-	FROM_TO_SND("shot1_loop", 20, 300, 5) {
-		int c = 5+global.diff;
-		for(int i = 0; i < c; i++) {
-			cmplx n = cexp(I*carg(global.plr.pos) + 2.0*I*M_PI/c*i);
-			PROJECTILE(
-				.proto = pp_ball,
-				.pos = e->pos + 50*n*cexp(-0.4*I*_i*global.diff),
-				.color = RGB(0.3, 0, 0.7),
-				.rule = asymptotic,
-				.args = { 3*n, 3 }
-			);
-		}
-
-		play_sound("shot2");
-	}
-
-	return 1;
-}
 
 static int stage5_swirl(Enemy *e, int t) {
 	TIMER(&t);
@@ -437,7 +405,7 @@ TASK(lightburst_fairy_2, {
 			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * i);
 			PROJECTILE(
 				.proto = pp_bigball,
-				.pos = e->pos + 50 * n * cdir(-1.0 * i * global.diff),
+				.pos = e->pos + 50 * n * cdir(-1.0 * x * global.diff),
 				.color = RGB(0.3, 0, 0.7 + 0.3 * (i % 2)),
 				.move = move_asymptotic_simple(2.5 * n + 0.25 * global.diff * rng_sreal() * cdir(2.0 * M_PI * rng_sreal()), 3),
 			);
@@ -469,7 +437,7 @@ TASK(lightburst_fairy_1, {
 			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * i);
 			PROJECTILE(
 				.proto = pp_ball,
-				.pos = e->pos + 50 * n * cdir(-0.4 * i * global.diff),
+				.pos = e->pos + 50 * n * cdir(-0.4 * x * global.diff),
 				.color = RGB(0.3, 0, 0.7),
 				.move = move_asymptotic_simple(3 * n, 3),
 			);
@@ -519,12 +487,12 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	YIELD;
 
 	// 60
-	INVOKE_TASK_DELAYED(60, greeter_fairies_1, {
+	INVOKE_TASK_DELAYED(1060, greeter_fairies_1, {
 		.num = 7,
 	});
 
 	// 270
-	INVOKE_TASK_DELAYED(270, lightburst_fairies_1, {
+	INVOKE_TASK_DELAYED(1270, lightburst_fairies_1, {
 		.num = 2,
 		.pos1 = VIEWPORT_W/4,
 		.pos2 = VIEWPORT_W/2,
@@ -567,6 +535,14 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.num = 13,
 	});
 
+	// 5000
+	INVOKE_TASK_DELAYED(5000, lightburst_fairies_1, {
+		.num = 1,
+		.pos1 = VIEWPORT_W/2,
+		.pos2 = 0,
+		.exit = 2.0 * I,
+	});
+
 	// 5180
 	INVOKE_TASK_DELAYED(5180, lightburst_fairies_2, {
 		.num = 1,
@@ -575,6 +551,29 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.exit = 2.0 * I - 0.25,
 	});
 
+	// 5000
+	INVOKE_TASK_DELAYED(5000, lightburst_fairies_1, {
+		.num = 1,
+		.pos1 = VIEWPORT_W/2,
+		.pos2 = 0,
+		.exit = 2.0 * I,
+	});
+
+	// 5500
+	INVOKE_TASK_DELAYED(200, lightburst_fairies_1, {
+		.num = 1,
+		.pos1 = VIEWPORT_W+20 + VIEWPORT_H * 0.6 * I,
+		.pos2 = 0,
+		.exit = -2 * I - 2,
+	});
+
+	// 5500
+	INVOKE_TASK_DELAYED(200, lightburst_fairies_1, {
+		.num = 1,
+		.pos1 = -20 + VIEWPORT_H * 0.6 * I,
+		.pos2 = 0,
+		.exit = -2 * I + 2,
+	});
 }
 
 void stage5_events(void) {
@@ -642,10 +641,6 @@ void stage5_events(void) {
 		create_enemy1c(ofs + (VIEWPORT_W-2*ofs)*(_i&1) + VIEWPORT_H*I, 200, Swirl, stage5_miner, -I);
 	}
 
-	AT(5000) {
-		create_enemy1c(VIEWPORT_W/2, 2000, BigFairy, stage5_lightburst, 2.0*I);
-	}
-
 	FROM_TO(5030, 5060, 30) {
 		create_enemy1c(30.0*I+VIEWPORT_W*(_i&1), 1500, Fairy, stage5_superbullet, 2-4*(_i&1) + I);
 	}
@@ -664,10 +659,6 @@ void stage5_events(void) {
 		create_enemy1c(30.0*I, 1500, Fairy, stage5_superbullet, 2 + I);
 	}
 
-	AT(5500) {
-		create_enemy1c(VIEWPORT_W+20 + VIEWPORT_H*0.6*I, 2000, BigFairy, stage5_lightburst, -2*I - 2);
-		create_enemy1c(			 -20 + VIEWPORT_H*0.6*I, 2000, BigFairy, stage5_lightburst, -2*I + 2);
-	}
 
 	AT(5600) {
 		enemy_kill_all(&global.enemies);
