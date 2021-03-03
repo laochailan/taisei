@@ -6,7 +6,6 @@
  * Copyright (c) 2012-2019, Andrei Alexeyev <akari@taisei-project.org>.
  */
 
-#include "difficulty.h"
 #include "taisei.h"
 
 #include "timeline.h"
@@ -15,6 +14,7 @@
 #include "spells/spells.h"
 
 #include "coroutine.h"
+#include "difficulty.h"
 #include "enemy_classes.h"
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
