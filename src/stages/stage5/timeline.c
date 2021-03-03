@@ -14,7 +14,6 @@
 #include "spells/spells.h"
 
 #include "coroutine.h"
-#include "difficulty.h"
 #include "enemy_classes.h"
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
@@ -66,37 +65,6 @@ static int stage5_swirl(Enemy *e, int t) {
 		}
 
 		play_sound("shot1");
-	}
-
-	return 1;
-}
-
-static int stage5_limiter(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 4, ITEM_POWER, 4);
-		return 1;
-	}
-
-	e->pos += e->args[0];
-
-	FROM_TO_SND("shot1_loop", 0, 1200, 3) {
-		uint f = PFLAG_NOSPAWNFADE;
-		double base_angle = carg(global.plr.pos - e->pos);
-
-		for(int i = 1; i >= -1; i -= 2) {
-			double a = i * 0.2 - 0.1 * (global.diff / 4) + i * 3.0 / (_i + 1);
-			cmplx aim = cexp(I * (base_angle + a));
-
-			PROJECTILE(
-				.proto = pp_rice,
-				.pos = e->pos,
-				.color = RGB(0.5,0.1,0.2),
-				.rule = asymptotic,
-				.args = { 10*aim, 2 },
-				.flags = f,
-			);
-		}
 	}
 
 	return 1;
@@ -483,8 +451,138 @@ TASK(lightburst_fairies_2, {
 	}
 }
 
+// TODO: fix this, it doesn't work
+TASK(swirl_move, {
+	BoxedEnemy e;
+	cmplx start;
+	cmplx move1;
+	cmplx move2;
+	cmplx exit;
+}) {
+	Enemy *e = TASK_BIND(ARGS.e);
+	e->move = move_accelerated(ARGS.move1, 0.5);
+}
+
+// TODO: fix this, it doesn't work
+TASK(swirl, {
+	cmplx start;
+	cmplx move1;
+	cmplx move2;
+	cmplx exit;
+}) {
+	Enemy *e = TASK_BIND(espawn_swirl(ARGS.start, ITEMS(.points = 4, .power = 2)));
+	INVOKE_SUBTASK(swirl_move, {
+		.e = ENT_BOX(e),
+		.start = ARGS.start,
+		.move1 = ARGS.move1,
+		.move2 = ARGS.move2,
+		.exit = ARGS.exit,
+	});
+
+	int difficulty = 26 - difficulty_value(4, 8, 16, 24);
+
+	for (int x = 0; x < 200; x++) {
+		for(int i = 1; i >= -1; i -= 2) {
+			PROJECTILE(
+				.proto = pp_bullet,
+				.pos = e->pos,
+				.color = RGB(0.3, 0.4, 0.5),
+				.move = move_asymptotic_simple(i * 2 * ARGS.move1 * I / cabs(ARGS.move1), 3),
+				//.rule = asymptotic,
+				//.args = { i*2*e->args[0]*I/cabs(e->args[0]), 3 }
+			);
+		}
+
+		play_sound("shot1");
+		WAIT(difficulty);
+	}
+}
+
+TASK(swirls, {
+	int num;
+	cmplx start;
+	cmplx move1;
+	cmplx move2;
+	cmplx exit;
+}) {
+	for (int i = 0; i < ARGS.num; i++) {
+		INVOKE_TASK(swirl, {
+			.start = ARGS.start,
+			.move1 = ARGS.move1,
+			.move2 = ARGS.move2,
+			.exit = ARGS.exit,
+		});
+		WAIT(10);
+	}
+}
+
+TASK(limiter_fairy, {
+		cmplx pos;
+		MoveParams exit;
+}) {
+	Enemy *e = TASK_BIND(espawn_fairy_red(ARGS.pos, ITEMS(.points = 4, .power = 4)));
+	e->move = ARGS.exit;
+
+	int difficulty = difficulty_value(0.25, 0.50, 0.75, 1);
+	for (int x = 0; x < 400; x++) {
+		double base_angle = carg(global.plr.pos - e->pos);
+
+		for (int i = 1; i >= -1; i -= 2) {
+			double a = i * 0.2 - 0.1 * difficulty + i * 3.0 / (x + 1);
+			cmplx aim = cdir(base_angle + a);
+
+			PROJECTILE(
+				.proto = pp_rice,
+				.pos = e->pos,
+				.color = RGB(0.5, 0.1, 0.2),
+				.move = move_asymptotic_simple(10 * aim, 2),
+				.flags = PFLAG_NOSPAWNFADE,
+			);
+		}
+
+		play_sfx("shot1_loop");
+		WAIT(3);
+	}
+}
+
+TASK(limiter_fairies, {
+	int num;
+	cmplx pos1;
+	cmplx pos2;
+	cmplx exit;
+}) {
+	for (int i = 0; i < ARGS.num; i++) {
+		cmplx pos = ARGS.pos1 + ARGS.pos2 * (i % 2);
+		INVOKE_TASK(limiter_fairy,
+			.pos = pos,
+			.exit = move_linear(ARGS.exit)
+		);
+		WAIT(60);
+	}
+}
+
 DEFINE_EXTERN_TASK(stage5_timeline) {
 	YIELD;
+
+	// for reference, will delete later:
+	/* 	create_enemy3c(200.0*I*afrand(0), 500, Swirl, stage5_swirl, 4+I, 70+20*afrand(1)+200.0*I, cexp(-0.05*I)); */
+	// TODO: needs fixing
+	// 400
+	INVOKE_TASK_DELAYED(400, swirls, {
+		.num = 20,
+		.start = 200.0 * I * rng_sreal(),
+		.move1 = 4 + I,
+		.move2 = 70 + 20 * rng_sreal(),
+		.exit = cdir(-0.05),
+	});
+
+	// 700
+	INVOKE_TASK_DELAYED(700, limiter_fairies, {
+		.num = 2 + (global.diff != D_Easy),
+		.pos1 = VIEWPORT_W/4,
+		.pos2 = VIEWPORT_W/2,
+		.exit = I,
+	});
 
 	// 60
 	INVOKE_TASK_DELAYED(1060, greeter_fairies_1, {
@@ -543,14 +641,6 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.exit = 2.0 * I,
 	});
 
-	// 5180
-	INVOKE_TASK_DELAYED(5180, lightburst_fairies_2, {
-		.num = 1,
-		.pos1 = VIEWPORT_W/2,
-		.pos2 = 100,
-		.exit = 2.0 * I - 0.25,
-	});
-
 	// 5000
 	INVOKE_TASK_DELAYED(5000, lightburst_fairies_1, {
 		.num = 1,
@@ -559,8 +649,16 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.exit = 2.0 * I,
 	});
 
+	// 5180
+	INVOKE_TASK_DELAYED(5180, lightburst_fairies_2, {
+		.num = 1,
+		.pos1 = VIEWPORT_W/2,
+		.pos2 = 100,
+		.exit = 2.0 * I - 0.25,
+	});
+
 	// 5500
-	INVOKE_TASK_DELAYED(200, lightburst_fairies_1, {
+	INVOKE_TASK_DELAYED(5500, lightburst_fairies_1, {
 		.num = 1,
 		.pos1 = VIEWPORT_W+20 + VIEWPORT_H * 0.6 * I,
 		.pos2 = 0,
@@ -568,29 +666,38 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	});
 
 	// 5500
-	INVOKE_TASK_DELAYED(200, lightburst_fairies_1, {
+	INVOKE_TASK_DELAYED(5500, lightburst_fairies_1, {
 		.num = 1,
 		.pos1 = -20 + VIEWPORT_H * 0.6 * I,
 		.pos2 = 0,
 		.exit = -2 * I + 2,
 	});
+
+	// 6300
+	INVOKE_TASK_DELAYED(6300, limiter_fairies, {
+		.num = 1,
+		.pos1 = VIEWPORT_W/4,
+		.pos2 = VIEWPORT_W/2,
+		.exit = 2 * I,
+	});
+
 }
 
 void stage5_events(void) {
 	TIMER(&global.timer);
 
-	FROM_TO(400, 600, 10) {
-		tsrand_fill(2);
-		create_enemy3c(200.0*I*afrand(0), 500, Swirl, stage5_swirl, 4+I, 70+20*afrand(1)+200.0*I, cexp(-0.05*I));
-	}
+	/* FROM_TO(400, 600, 10) { */
+	/* 	tsrand_fill(2); */
+	/* 	create_enemy3c(200.0*I*afrand(0), 500, Swirl, stage5_swirl, 4+I, 70+20*afrand(1)+200.0*I, cexp(-0.05*I)); */
+	/* } */
 
-	FROM_TO(700, 800, 10) {
-		tsrand_fill(3);
-		create_enemy3c(VIEWPORT_W+200.0*I*afrand(0), 500, Swirl, stage5_swirl, -4+afrand(1)*I, 70+20*afrand(2)+200.0*I, cexp(0.05*I));
-	}
+	/* FROM_TO(700, 800, 10) { */
+	/* 	tsrand_fill(3); */
+	/* 	create_enemy3c(VIEWPORT_W+200.0*I*afrand(0), 500, Swirl, stage5_swirl, -4+afrand(1)*I, 70+20*afrand(2)+200.0*I, cexp(0.05*I)); */
+	/* } */
 
-	FROM_TO(870+50*(global.diff==D_Easy), 1000, 50)
-		create_enemy1c(VIEWPORT_W/4+VIEWPORT_W/2*(_i&1), 2000, BigFairy, stage5_limiter, I);
+	/* FROM_TO(170+50*(global.diff==D_Easy), 300, 50) */
+	/* 	create_enemy1c(VIEWPORT_W/4+VIEWPORT_W/2*(_i&1), 2000, BigFairy, stage5_limiter, I); */
 
 	AT(1000)
 		create_enemy1c(VIEWPORT_W/2, 9000, BigFairy, stage5_laserfairy, 2.0*I);
@@ -685,9 +792,6 @@ void stage5_events(void) {
 		create_enemy1c(VIEWPORT_W+200.0*I*afrand(0), 500, Swirl, stage5_miner, -3+2.0*I*afrand(1));
 	}
 
-	FROM_TO(6300, 6350, 50) {
-		create_enemy1c(VIEWPORT_W/4+VIEWPORT_W/2*!(_i&1), 2000, BigFairy, stage5_limiter, 2*I);
-	}
 
 	AT(6960) {
 		stage_unlock_bgm("stage5");
