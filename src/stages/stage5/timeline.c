@@ -6,6 +6,7 @@
  * Copyright (c) 2012-2019, Andrei Alexeyev <akari@taisei-project.org>.
  */
 
+#include "difficulty.h"
 #include "taisei.h"
 
 #include "timeline.h"
@@ -300,44 +301,6 @@ static int stage5_magnetto(Enemy *e, int t) {
 	return 1;
 }
 
-static int stage5_lightburst2(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 4, ITEM_POWER, 4);
-		return 1;
-	}
-
-	FROM_TO(0, 70, 1) {
-		GO_TO(e, e->pos0 + e->args[0] * 70, 0.05);
-	}
-
-	if(t > 200)
-		e->pos += e->args[0];
-
-	FROM_TO_SND("shot1_loop", 20, 170, 5) {
-		int i;
-		int c = 4+global.diff-(global.diff==D_Easy);
-		for(i = 0; i < c; i++) {
-			tsrand_fill(2);
-			cmplx n = cexp(I*carg(global.plr.pos-e->pos) + 2.0*I*M_PI/c*i);
-			PROJECTILE(
-				.proto = pp_bigball,
-				.pos = e->pos + 50*n*cexp(-1.0*I*_i*global.diff),
-				.color = RGB(0.3, 0, 0.7+0.3*(_i&1)),
-				.rule = asymptotic,
-				.args = {
-					2.5*n+0.25*global.diff*afrand(0)*cexp(2.0*I*M_PI*afrand(1)),
-					3
-				}
-			);
-		}
-
-		play_sound("shot2");
-	}
-
-	return 1;
-}
-
 static int stage5_superbullet(Enemy *e, int t) {
 	TIMER(&t);
 	AT(EVENT_KILLED) {
@@ -405,7 +368,7 @@ TASK(greeter_fairies_3, {
 
 		INVOKE_TASK(greeter_fairy,
 			.pos = pos,
-			.move_enter = move_towards(pos + 6 * (30-60*(i % 2)) + I, 0.05),
+			.move_enter = move_towards(pos + 6 * (30 - 60 * (i % 2)) + I, 0.05),
 			.move_exit = move_linear(3 * xdir)
 		);
 		WAIT(60);
@@ -445,27 +408,177 @@ TASK(greeter_fairies_1, {
 	}
 }
 
+TASK(lightburst_fairy_move, {
+	BoxedEnemy e;
+	MoveParams move;
+}) {
+	Enemy *e = TASK_BIND(ARGS.e);
+	e->move = ARGS.move;
+}
+
+TASK(lightburst_fairy_2, {
+		cmplx pos;
+		MoveParams move_enter;
+		MoveParams move_exit;
+}) {
+	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 4, .power = 2)));
+
+	e->move = ARGS.move_enter;
+	INVOKE_SUBTASK_DELAYED(200, lightburst_fairy_move, {
+			.e = ENT_BOX(e),
+			.move = ARGS.move_exit
+	});
+
+	real count = difficulty_value(6, 7, 8, 9);
+	WAIT(70);
+	for (int i = 0; i < 70; i++) {
+		play_sfx("shot1_loop");
+		for(int x = 0; x < count; x++) {
+			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * x);
+			PROJECTILE(
+				.proto = pp_bigball,
+				.pos = e->pos + 50 * n * cdir(-1.0 * i * global.diff),
+				.color = RGB(0.3, 0, 0.7 + 0.3 * (i % 2)),
+				.move = move_asymptotic_simple(2.5 * n + 0.25 * global.diff * rng_sreal() * cdir(2.0 * M_PI * rng_sreal()), 3),
+			);
+			play_sfx("shot1_loop");
+		}
+		play_sfx("shot2");
+		WAIT(5);
+	}
+}
+
+TASK(lightburst_fairy_1, {
+		cmplx pos;
+		MoveParams move_enter;
+		MoveParams move_exit;
+}) {
+	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 4, .power = 2)));
+
+	e->move = ARGS.move_enter;
+	INVOKE_SUBTASK_DELAYED(200, lightburst_fairy_move, {
+			.e = ENT_BOX(e),
+			.move = ARGS.move_exit
+	});
+
+	real count = difficulty_value(6, 7, 8, 9);
+	WAIT(70);
+	for (int i = 0; i < 150; i++) {
+		play_sfx("shot1_loop");
+		for(int x = 0; x < count; x++) {
+			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * x);
+			PROJECTILE(
+				.proto = pp_ball,
+				.pos = e->pos + 50 * n * cdir(-0.4 * i * global.diff),
+				.color = RGB(0.3, 0, 0.7),
+				.move = move_asymptotic_simple(3 * n, 3),
+			);
+			play_sfx("shot1_loop");
+		}
+		play_sfx("shot2");
+		WAIT(5);
+	}
+}
+
+
+TASK(lightburst_fairies_1, {
+	int num;
+	cmplx pos1;
+	cmplx pos2;
+	cmplx exit;
+}) {
+	for(int i = 0; i < ARGS.num; i++) {
+		cmplx pos = ARGS.pos1 + ARGS.pos2 * i;
+		INVOKE_TASK(lightburst_fairy_1,
+			.pos = pos,
+			.move_enter = move_towards(pos + ARGS.exit * 70 , 0.05),
+			.move_exit = move_linear(ARGS.exit)
+		);
+		WAIT(40);
+	}
+}
+
+TASK(lightburst_fairies_2, {
+	int num;
+	cmplx pos1;
+	cmplx pos2;
+	cmplx exit;
+}) {
+	for(int i = 0; i < ARGS.num; i++) {
+		cmplx pos = ARGS.pos1 + ARGS.pos2 * i;
+		INVOKE_TASK(lightburst_fairy_2,
+			.pos = pos,
+			.move_enter = move_towards(pos + ARGS.exit * 70 , 0.05),
+			.move_exit = move_linear(ARGS.exit)
+		);
+		WAIT(40);
+	}
+}
+
 DEFINE_EXTERN_TASK(stage5_timeline) {
 	YIELD;
 
+	// 60
 	INVOKE_TASK_DELAYED(60, greeter_fairies_1, {
 		.num = 7,
 	});
 
+	// 270
+	INVOKE_TASK_DELAYED(270, lightburst_fairies_1, {
+		.num = 2,
+		.pos1 = VIEWPORT_W/4,
+		.pos2 = VIEWPORT_W/2,
+		.exit = 2.0 * I,
+	});
+
+	// 1500
 	INVOKE_TASK_DELAYED(1500, greeter_fairies_2, {
 		.num = 11,
 	});
 
+	// 2500
+	INVOKE_TASK_DELAYED(2500, lightburst_fairies_1, {
+		.num = 1,
+		.pos1 = VIEWPORT_W/2,
+		.pos2 = 0,
+		.exit = 2.0 * I,
+	});
+
+	// 2700
+	if (global.diff > D_Easy) {
+		INVOKE_TASK_DELAYED(2700, lightburst_fairies_1, {
+			.num = 1,
+			.pos1 = (VIEWPORT_W - 20) + (120 * I),
+			.pos2 = 0,
+			.exit = -2.0,
+		});
+	}
+
+	// 3000
+	INVOKE_TASK_DELAYED(3000, lightburst_fairies_2, {
+		.num = 3,
+		.pos1 = VIEWPORT_W/4,
+		.pos2 = VIEWPORT_W/4,
+		.exit = 2.0 * I,
+	});
+
+	// 4260
 	INVOKE_TASK_DELAYED(4260, greeter_fairies_3, {
 		.num = 13,
 	});
+
+	// 5180
+	INVOKE_TASK_DELAYED(5180, lightburst_fairies_2, {
+		.num = 1,
+		.pos1 = VIEWPORT_W/2,
+		.pos2 = 100,
+		.exit = 2.0 * I - 0.25,
+	});
+
 }
 
 void stage5_events(void) {
 	TIMER(&global.timer);
-
-	FROM_TO(270, 320, 40)
-		create_enemy1c(VIEWPORT_W/4+VIEWPORT_W/2*_i, 2000, BigFairy, stage5_lightburst, 2.0*I);
 
 	FROM_TO(400, 600, 10) {
 		tsrand_fill(2);
@@ -488,18 +601,10 @@ void stage5_events(void) {
 		create_enemy1c(VIEWPORT_W+200.0*I*afrand(0), 500, Swirl, stage5_miner, -3+2.0*I*afrand(1));
 	}
 
-	AT(2500) {
-		create_enemy1c(VIEWPORT_W/2, 2000, BigFairy, stage5_lightburst, 2.0*I);
-	}
 
 	FROM_TO(2200, 2600, 60-8*global.diff)
 		create_enemy1c(VIEWPORT_W/(6+global.diff)*_i, 200, Swirl, stage5_miner, 3.0*I);
 
-	AT(2700) {
-		if(global.diff > D_Easy) {
-			create_enemy1c(VIEWPORT_W-20+120*I, 2000, BigFairy, stage5_lightburst, -2.0);
-		}
-	}
 
 	AT(2900)
 		global.boss = stage5_spawn_midboss();
@@ -509,10 +614,6 @@ void stage5_events(void) {
 
 		// TODO: determine if this hack is still required with the new dialogue system
 		global.timer++;
-	}
-
-	FROM_TO(3000, 3200, 100) {
-		create_enemy1c(VIEWPORT_W/2 + VIEWPORT_W/6*(1-2*(_i&1)), 2000, BigFairy, stage5_lightburst2, -1+2*(_i&1) + 2.0*I);
 	}
 
 	FROM_TO(3300, 4000, 90-10*global.diff)
@@ -547,10 +648,6 @@ void stage5_events(void) {
 
 	FROM_TO(5030, 5060, 30) {
 		create_enemy1c(30.0*I+VIEWPORT_W*(_i&1), 1500, Fairy, stage5_superbullet, 2-4*(_i&1) + I);
-	}
-
-	AT(5180) {
-		create_enemy1c(VIEWPORT_W/2+100, 2000, BigFairy, stage5_lightburst2, 2.0*I - 0.25);
 	}
 
 	FROM_TO(5060, 5300, 60-10*global.diff) {
