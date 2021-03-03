@@ -340,9 +340,9 @@ TASK(greeter_fairy, {
 	real count = difficulty_value(1, 2, 3, 4);
 
 	WAIT(80);
-	for (int i = 0; i < 5; i++) {
+	for (int x = 0; x < 5; x++) {
 		cmplx dir = cnormalize(global.plr.pos - e->pos);
-		for(int i = -count; i <= count; i++) {
+		for (int i = -count; i <= count; i++) {
 			PROJECTILE(
 				.proto = pp_bullet,
 				.pos = e->pos,
@@ -362,7 +362,7 @@ TASK(greeter_fairy, {
 TASK(greeter_fairies_3, {
 	int num;
 }) {
-	for(int i = 0; i < ARGS.num; i++) {
+	for (int i = 0; i < ARGS.num; i++) {
 		cmplx pos = VIEWPORT_W * (i % 2) + 120 * I;
 		real xdir = 1 - 2 * (i % 2);
 
@@ -379,7 +379,7 @@ TASK(greeter_fairies_3, {
 TASK(greeter_fairies_2, {
 	int num;
 }) {
-	for(int i = 0; i < ARGS.num; i++) {
+	for (int i = 0; i < ARGS.num; i++) {
 		cmplx pos = VIEWPORT_W * (i % 2) + 100.0 * I;
 		real xdir = 1 - 2 * (i % 2);
 
@@ -395,7 +395,7 @@ TASK(greeter_fairies_2, {
 TASK(greeter_fairies_1, {
 	int num;
 }) {
-	for(int i = 0; i < ARGS.num; i++) {
+	for (int i = 0; i < ARGS.num; i++) {
 		cmplx pos = VIEWPORT_W * (i % 2) + 70.0 * I + 50 * i * I;
 		real xdir = 1 - 2 * (i % 2);
 
@@ -431,10 +431,10 @@ TASK(lightburst_fairy_2, {
 
 	real count = difficulty_value(6, 7, 8, 9);
 	WAIT(70);
-	for (int i = 0; i < 70; i++) {
+	for (int x = 0; x < 70; x++) {
 		play_sfx("shot1_loop");
-		for(int x = 0; x < count; x++) {
-			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * x);
+		for (int i = 0; i < count; i++) {
+			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * i);
 			PROJECTILE(
 				.proto = pp_bigball,
 				.pos = e->pos + 50 * n * cdir(-1.0 * i * global.diff),
@@ -463,10 +463,10 @@ TASK(lightburst_fairy_1, {
 
 	real count = difficulty_value(6, 7, 8, 9);
 	WAIT(70);
-	for (int i = 0; i < 150; i++) {
+	for (int x = 0; x < 150; x++) {
 		play_sfx("shot1_loop");
-		for(int x = 0; x < count; x++) {
-			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * x);
+		for (int i = 0; i < count; i++) {
+			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * i);
 			PROJECTILE(
 				.proto = pp_ball,
 				.pos = e->pos + 50 * n * cdir(-0.4 * i * global.diff),
@@ -487,7 +487,7 @@ TASK(lightburst_fairies_1, {
 	cmplx pos2;
 	cmplx exit;
 }) {
-	for(int i = 0; i < ARGS.num; i++) {
+	for (int i = 0; i < ARGS.num; i++) {
 		cmplx pos = ARGS.pos1 + ARGS.pos2 * i;
 		INVOKE_TASK(lightburst_fairy_1,
 			.pos = pos,
@@ -504,7 +504,7 @@ TASK(lightburst_fairies_2, {
 	cmplx pos2;
 	cmplx exit;
 }) {
-	for(int i = 0; i < ARGS.num; i++) {
+	for (int i = 0; i < ARGS.num; i++) {
 		cmplx pos = ARGS.pos1 + ARGS.pos2 * i;
 		INVOKE_TASK(lightburst_fairy_2,
 			.pos = pos,
