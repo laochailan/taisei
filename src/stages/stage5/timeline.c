@@ -451,35 +451,35 @@ TASK(lightburst_fairies_2, {
 	}
 }
 
-// TODO: fix this, it doesn't work
 TASK(swirl_move, {
-	BoxedEnemy e;
-	cmplx start;
-	cmplx move1;
-	cmplx move2;
-	cmplx exit;
+    MoveParams *move;
+	cmplx turn;
+	cmplx retention;
 }) {
-	Enemy *e = TASK_BIND(ARGS.e);
-	e->move = move_accelerated(ARGS.move1, 0.5);
+	int begin = creal(ARGS.turn) + 1;
+	int end = cimag(ARGS.turn) - 1;
+	int time = end - begin;
+
+	ARGS.move->retention = ARGS.retention;
+	WAIT(time / 1.5);
+	ARGS.move->retention = 1;
 }
 
-// TODO: fix this, it doesn't work
-TASK(swirl, {
+TASK(loop_swirl, {
 	cmplx start;
-	cmplx move1;
-	cmplx move2;
-	cmplx exit;
+	cmplx velocity;
+	cmplx turn;
+	cmplx retention;
 }) {
 	Enemy *e = TASK_BIND(espawn_swirl(ARGS.start, ITEMS(.points = 4, .power = 2)));
-	INVOKE_SUBTASK(swirl_move, {
-		.e = ENT_BOX(e),
-		.start = ARGS.start,
-		.move1 = ARGS.move1,
-		.move2 = ARGS.move2,
-		.exit = ARGS.exit,
-	});
+    e->move = move_linear(ARGS.velocity);
+    INVOKE_SUBTASK_DELAYED(80, swirl_move,
+        .move = &e->move,
+		.turn = ARGS.turn,
+		.retention = ARGS.retention
+    );
 
-	int difficulty = 26 - difficulty_value(4, 8, 16, 24);
+	int difficulty = 30 - difficulty_value(4, 8, 16, 24);
 
 	for (int x = 0; x < 200; x++) {
 		for(int i = 1; i >= -1; i -= 2) {
@@ -487,7 +487,9 @@ TASK(swirl, {
 				.proto = pp_bullet,
 				.pos = e->pos,
 				.color = RGB(0.3, 0.4, 0.5),
-				.move = move_asymptotic_simple(i * 2 * ARGS.move1 * I / cabs(ARGS.move1), 3),
+				.move = move_asymptotic_simple(i * 2 * ARGS.velocity * I / cabs(ARGS.velocity), 3),
+				// TODO: bullets only fire down-left with the above
+				// they should also fire in other directions correlating to the angle of "turn" the swirls make
 				//.rule = asymptotic,
 				//.args = { i*2*e->args[0]*I/cabs(e->args[0]), 3 }
 			);
@@ -498,19 +500,20 @@ TASK(swirl, {
 	}
 }
 
-TASK(swirls, {
+TASK(loop_swirls, {
 	int num;
+	int direction;
 	cmplx start;
-	cmplx move1;
-	cmplx move2;
-	cmplx exit;
+	cmplx velocity;
+	cmplx turn;
+	cmplx retention;
 }) {
 	for (int i = 0; i < ARGS.num; i++) {
-		INVOKE_TASK(swirl, {
-			.start = ARGS.start,
-			.move1 = ARGS.move1,
-			.move2 = ARGS.move2,
-			.exit = ARGS.exit,
+		INVOKE_TASK(loop_swirl, {
+			.start = VIEWPORT_W * ARGS.direction + ARGS.start * rng_sreal(),
+			.velocity = ARGS.velocity,
+			.turn = ARGS.turn * rng_sreal() + ARGS.start,
+			.retention = ARGS.retention,
 		});
 		WAIT(10);
 	}
@@ -564,16 +567,24 @@ TASK(limiter_fairies, {
 DEFINE_EXTERN_TASK(stage5_timeline) {
 	YIELD;
 
-	// for reference, will delete later:
-	/* 	create_enemy3c(200.0*I*afrand(0), 500, Swirl, stage5_swirl, 4+I, 70+20*afrand(1)+200.0*I, cexp(-0.05*I)); */
-	// TODO: needs fixing
 	// 400
-	INVOKE_TASK_DELAYED(400, swirls, {
+	INVOKE_TASK_DELAYED(400, loop_swirls, {
 		.num = 20,
-		.start = 200.0 * I * rng_sreal(),
-		.move1 = 4 + I,
-		.move2 = 70 + 20 * rng_sreal(),
-		.exit = cdir(-0.05),
+		.start = 200.0 * I,
+		.velocity = 4 + I,
+		.turn = 9,
+		.retention = cdir(-0.05),
+		.direction = 0,
+	});
+
+	// 700
+	INVOKE_TASK_DELAYED(700, loop_swirls, {
+		.num = 10,
+		.start = 200 * I,
+		.velocity = -4 + I,
+		.turn = 9,
+		.retention = cdir(0.05),
+		.direction = 1,
 	});
 
 	// 700
@@ -685,16 +696,6 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 
 void stage5_events(void) {
 	TIMER(&global.timer);
-
-	/* FROM_TO(400, 600, 10) { */
-	/* 	tsrand_fill(2); */
-	/* 	create_enemy3c(200.0*I*afrand(0), 500, Swirl, stage5_swirl, 4+I, 70+20*afrand(1)+200.0*I, cexp(-0.05*I)); */
-	/* } */
-
-	/* FROM_TO(700, 800, 10) { */
-	/* 	tsrand_fill(3); */
-	/* 	create_enemy3c(VIEWPORT_W+200.0*I*afrand(0), 500, Swirl, stage5_swirl, -4+afrand(1)*I, 70+20*afrand(2)+200.0*I, cexp(0.05*I)); */
-	/* } */
 
 	/* FROM_TO(170+50*(global.diff==D_Easy), 300, 50) */
 	/* 	create_enemy1c(VIEWPORT_W/4+VIEWPORT_W/2*(_i&1), 2000, BigFairy, stage5_limiter, I); */
