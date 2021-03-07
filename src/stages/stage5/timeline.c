@@ -71,30 +71,6 @@ static int stage5_laserfairy(Enemy *e, int t) {
 	return 1;
 }
 
-static int stage5_miner(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 2);
-		return 1;
-	}
-
-	e->pos += e->args[0];
-
-	FROM_TO(0, 600, 5-global.diff/2) {
-		tsrand_fill(2);
-		PROJECTILE(
-			.proto = pp_rice,
-			.pos = e->pos + 20*cexp(2.0*I*M_PI*afrand(0)),
-			.color = RGB(0,0,cabs(e->args[0])),
-			.rule = linear,
-			.args = { cexp(2.0*I*M_PI*afrand(1)) }
-		);
-		play_sfx_ex("shot3", 0, false);
-	}
-
-	return 1;
-}
-
 static void iku_intro(Boss *b, int t) {
 	GO_TO(b, VIEWPORT_W/2+240.0*I, 0.015);
 
@@ -578,7 +554,7 @@ TASK(miner_swirls_2, {
 	cmplx start;
 	cmplx velocity;
 }) {
-	int delay = 400 / ARGS.num;
+	int delay = ARGS.time / ARGS.num;
 	for (int x = 0; x < ARGS.num; x++) {
 		INVOKE_TASK(miner_swirl, {
 			.start = ARGS.start * x,
@@ -592,14 +568,15 @@ TASK(miner_swirls_2, {
 
 TASK(miner_swirls_1, {
 	int num;
+	int time;
 	cmplx start;
 	cmplx velocity;
 }) {
-	int delay = 1000 / ARGS.num;
+	int delay = ARGS.time / ARGS.num;
 	for (int x = 0; x < ARGS.num; x++) {
 		INVOKE_TASK(miner_swirl, {
 			.start = VIEWPORT_W + 200.0 * I * rng_real(),
-			.velocity = ARGS.velocity * rng_real(),
+			.velocity = ARGS.velocity,
 		});
 
 		WAIT(delay);
@@ -657,7 +634,6 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.velocity = -3.0 + 2.0 * I,
 	});
 
-
 	// 1500
 	INVOKE_TASK_DELAYED(1500, greeter_fairies_2, {
 		.num = 11,
@@ -666,6 +642,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 2200
 	INVOKE_TASK_DELAYED(2200, miner_swirls_2, {
 		.num = difficulty_value(7, 9, 11, 14),
+		.time = 400,
 		.start = VIEWPORT_W / (6 + global.diff),
 		.velocity = 3.0 * I,
 	});
@@ -747,6 +724,20 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.exit = -2 * I + 2,
 	});
 
+	// 5060
+	INVOKE_TASK_DELAYED(5060, miner_swirls_1, {
+		.num = difficulty_value(5, 7, 9, 12),
+		.time = 240,
+		.velocity = -3 + 2.0 * I,
+	});
+
+	// 6100
+	INVOKE_TASK_DELAYED(6100, miner_swirls_1, {
+		.num = difficulty_value(5, 10, 15, 20),
+		.time = 250,
+		.velocity = -3 + 2.0 * I,
+	});
+
 	// 6300
 	INVOKE_TASK_DELAYED(6300, limiter_fairies, {
 		.num = 1,
@@ -754,7 +745,6 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.pos2 = VIEWPORT_W/2,
 		.exit = 2 * I,
 	});
-
 }
 
 void stage5_events(void) {
@@ -801,10 +791,6 @@ void stage5_events(void) {
 		create_enemy1c(30.0*I+VIEWPORT_W*(_i&1), 1500, Fairy, stage5_superbullet, 2-4*(_i&1) + I);
 	}
 
-	FROM_TO(5060, 5300, 60-10*global.diff) {
-		tsrand_fill(2);
-		create_enemy1c(VIEWPORT_W+200.0*I*afrand(0), 500, Swirl, stage5_miner, -3+2.0*I*afrand(1));
-	}
 
 	AT(5360) {
 		create_enemy1c(30.0*I+VIEWPORT_W, 1500, Fairy, stage5_superbullet, -2 + I);
@@ -836,10 +822,6 @@ void stage5_events(void) {
 		}
 	}
 
-	FROM_TO(6100, 6350, 60-12*global.diff) {
-		tsrand_fill(2);
-		create_enemy1c(VIEWPORT_W+200.0*I*afrand(0), 500, Swirl, stage5_miner, -3+2.0*I*afrand(1));
-	}
 
 
 	AT(6960) {
