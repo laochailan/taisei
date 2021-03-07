@@ -57,23 +57,6 @@ Boss* stage5_spawn_iku(cmplx pos) {
 
 static void midboss_dummy(Boss *b, int t) { }
 
-static Boss *stage5_spawn_midboss(void) {
-	Boss *b = create_boss("Bombs?", "iku_mid", VIEWPORT_W+800.0*I);
-	b->glowcolor = *RGB(0.2, 0.4, 0.5);
-	b->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
-
-	Attack *a = boss_add_attack(b, AT_SurvivalSpell, "Discharge Bombs", 16, 10, iku_mid_intro, NULL);
-	boss_set_attack_bonus(a, 5);
-
-	// suppress the boss death effects (this triggers the "boss fleeing" case)
-	boss_add_attack(b, AT_Move, "", 0, 0, midboss_dummy, NULL);
-
-	boss_engage(b);
-	b->attacks->starttime = global.frames;	// HACK: thwart attack delay
-
-	return b;
-}
-
 static Boss* stage5_spawn_boss(void) {
 	Boss *b = stage5_spawn_iku(VIEWPORT_W/2-200.0*I);
 
@@ -150,6 +133,21 @@ static int stage5_magnetto(Enemy *e, int t) {
 	}
 
 	return 1;
+}
+
+TASK(spawn_midboss, NO_ARGS) {
+	STAGE_BOOKMARK(midboss);
+	Boss *b = global.boss = create_boss("Bombs?", "iku_mid", VIEWPORT_W+800.0*I);
+	b->glowcolor = *RGB(0.2, 0.4, 0.5);
+	b->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
+
+	Attack *a = boss_add_attack_task(b, AT_SurvivalSpell, "Discharge Bombs", 16, 10, TASK_INDIRECT(BossAttack, stage5_midboss_iku_explosion), NULL);
+	boss_set_attack_bonus(a, 5);
+
+	// suppress the boss death effects (this triggers the "boss fleeing" case)
+	boss_add_attack(b, AT_Move, "", 0, 0, midboss_dummy, NULL);
+
+	boss_engage(b);
 }
 
 TASK(greeter_fairy, {
@@ -599,13 +597,15 @@ TASK(superbullet_fairies_1, {
 DEFINE_EXTERN_TASK(stage5_timeline) {
 	YIELD;
 
+	STAGE_BOOKMARK_DELAYED(60, init);
+
 	// 60
-	INVOKE_TASK_DELAYED(1060, greeter_fairies_1, {
+	INVOKE_TASK_DELAYED(60, greeter_fairies_1, {
 		.num = 7,
 	});
 
 	// 270
-	INVOKE_TASK_DELAYED(1270, lightburst_fairies_1, {
+	INVOKE_TASK_DELAYED(270, lightburst_fairies_1, {
 		.num = 2,
 		.pos1 = VIEWPORT_W/4,
 		.pos2 = VIEWPORT_W/2,
@@ -613,7 +613,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	});
 
 	// 400
-	INVOKE_TASK_DELAYED(4000, loop_swirls, {
+	INVOKE_TASK_DELAYED(400, loop_swirls, {
 		.num = 20,
 		.start = 200.0 * I,
 		.velocity = 4 + I,
@@ -623,7 +623,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	});
 
 	// 700
-	INVOKE_TASK_DELAYED(2000, loop_swirls, {
+	INVOKE_TASK_DELAYED(700, loop_swirls, {
 		.num = 10,
 		.start = 200 * I,
 		.velocity = -4 + I,
@@ -633,7 +633,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	});
 
 	// 700
-	INVOKE_TASK_DELAYED(2000, limiter_fairies, {
+	INVOKE_TASK_DELAYED(700, limiter_fairies, {
 		.num = 2 + (global.diff != D_Easy),
 		.pos1 = VIEWPORT_W/4,
 		.pos2 = VIEWPORT_W/2,
@@ -650,6 +650,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 1400
 	INVOKE_TASK_DELAYED(1400, miner_swirls_1, {
 		.num = difficulty_value(15, 20, 25, 30),
+		.time = 1000,
 		.start = 200.0 * I,
 		.velocity = -3.0 + 2.0 * I,
 	});
@@ -685,8 +686,16 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		});
 	}
 
+	WAIT(2900);
+	INVOKE_TASK(spawn_midboss);
+
+	int midboss_time = WAIT_EVENT(&global.boss->events.defeated).frames;
+	STAGE_BOOKMARK(post-midboss);
+	log_debug("midboss time: %i", midboss_time);
+
+	WAIT(400);
 	// 3000
-	INVOKE_TASK_DELAYED(3000, lightburst_fairies_2, {
+	INVOKE_TASK_DELAYED(0, lightburst_fairies_2, {
 		.num = 3,
 		.pos1 = VIEWPORT_W/4,
 		.pos2 = VIEWPORT_W/4,
@@ -694,38 +703,38 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	});
 
 	// 3300
-	INVOKE_TASK_DELAYED(3300, superbullet_fairies_1, {
+	INVOKE_TASK_DELAYED(300, superbullet_fairies_1, {
 		.num = difficulty_value(8, 10, 12, 14),
 		.time = 700,
 	});
 
 	// 3400
-	INVOKE_TASK_DELAYED(3400, laser_fairy, {
+	INVOKE_TASK_DELAYED(400, laser_fairy, {
 		.pos = VIEWPORT_W / 4,
 		.acceleration = 2.0 * I,
 		.reduction = 2,
 	});
 
 	// 3400
-	INVOKE_TASK_DELAYED(3400, laser_fairy, {
+	INVOKE_TASK_DELAYED(400, laser_fairy, {
 		.pos = VIEWPORT_W / 4 * 3,
 		.acceleration = 2.0 * I,
 		.reduction = 2,
 	});
 
 	// 4260
-	INVOKE_TASK_DELAYED(4260, greeter_fairies_3, {
+	INVOKE_TASK_DELAYED(1260, greeter_fairies_3, {
 		.num = 13,
 	});
 
 	// 4320
-	INVOKE_TASK_DELAYED(4320, miner_swirls_3, {
+	INVOKE_TASK_DELAYED(1320, miner_swirls_3, {
 		.num = 2,
 		.velocity = -I,
 	});
 
 	// 5000
-	INVOKE_TASK_DELAYED(5000, lightburst_fairies_1, {
+	INVOKE_TASK_DELAYED(2000, lightburst_fairies_1, {
 		.num = 1,
 		.pos1 = VIEWPORT_W/2,
 		.pos2 = 0,
@@ -733,47 +742,55 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	});
 
 	// 5000
-	INVOKE_TASK_DELAYED(5000, lightburst_fairies_1, {
+	INVOKE_TASK_DELAYED(2000, lightburst_fairies_1, {
 		.num = 1,
 		.pos1 = VIEWPORT_W/2,
 		.pos2 = 0,
 		.exit = 2.0 * I,
 	});
 
+	// 5030
+	INVOKE_TASK_DELAYED(2030, superbullet_fairy, {
+		.pos = 30.0 * I + VIEWPORT_W,
+		.acceleration = -2 + I,
+	});
+
+	// 5060
+	INVOKE_TASK_DELAYED(2060, superbullet_fairy, {
+		.pos = 30.0 * I,
+		.acceleration = 2 + I,
+	});
+
+	// 5060
+	INVOKE_TASK_DELAYED(2060, miner_swirls_1, {
+		.num = difficulty_value(5, 7, 9, 12),
+		.time = 240,
+		.velocity = -3 + 2.0 * I,
+	});
+
 	// 5180
-	INVOKE_TASK_DELAYED(5180, lightburst_fairies_2, {
+	INVOKE_TASK_DELAYED(2180, lightburst_fairies_2, {
 		.num = 1,
 		.pos1 = VIEWPORT_W/2,
 		.pos2 = 100,
 		.exit = 2.0 * I - 0.25,
 	});
 
-	// 5030
-	INVOKE_TASK_DELAYED(5030, superbullet_fairy, {
-		.pos = 30.0 * I + VIEWPORT_W,
-		.acceleration = -2 + I,
-	});
-
-	// 5060
-	INVOKE_TASK_DELAYED(5060, superbullet_fairy, {
-		.pos = 30.0 * I,
-		.acceleration = 2 + I,
-	});
-
 	// 5360
-	INVOKE_TASK_DELAYED(5360, superbullet_fairy, {
+	INVOKE_TASK_DELAYED(2360, superbullet_fairy, {
 		.pos = 30.0 * I + VIEWPORT_W,
 		.acceleration = -2 + I,
 	});
 
 	// 5390
-	INVOKE_TASK_DELAYED(5390, superbullet_fairy, {
+	INVOKE_TASK_DELAYED(2390, superbullet_fairy, {
 		.pos = 30.0 * I,
 		.acceleration = 2 + I,
 	});
 
+
 	// 5500
-	INVOKE_TASK_DELAYED(5500, lightburst_fairies_1, {
+	INVOKE_TASK_DELAYED(2500, lightburst_fairies_1, {
 		.num = 1,
 		.pos1 = VIEWPORT_W+20 + VIEWPORT_H * 0.6 * I,
 		.pos2 = 0,
@@ -781,29 +798,23 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	});
 
 	// 5500
-	INVOKE_TASK_DELAYED(5500, lightburst_fairies_1, {
+	INVOKE_TASK_DELAYED(2500, lightburst_fairies_1, {
 		.num = 1,
 		.pos1 = -20 + VIEWPORT_H * 0.6 * I,
 		.pos2 = 0,
 		.exit = -2 * I + 2,
 	});
 
-	// 5060
-	INVOKE_TASK_DELAYED(5060, miner_swirls_1, {
-		.num = difficulty_value(5, 7, 9, 12),
-		.time = 240,
-		.velocity = -3 + 2.0 * I,
-	});
 
 	// 6100
-	INVOKE_TASK_DELAYED(6100, miner_swirls_1, {
+	INVOKE_TASK_DELAYED(3100, miner_swirls_1, {
 		.num = difficulty_value(5, 10, 15, 20),
 		.time = 250,
 		.velocity = -3 + 2.0 * I,
 	});
 
 	// 6300
-	INVOKE_TASK_DELAYED(6300, limiter_fairies, {
+	INVOKE_TASK_DELAYED(3300, limiter_fairies, {
 		.num = 1,
 		.pos1 = VIEWPORT_W/4,
 		.pos2 = VIEWPORT_W/2,
@@ -828,8 +839,6 @@ void stage5_events(void) {
 	/* 	); */
 	/* } */
 
-	AT(2900)
-		global.boss = stage5_spawn_midboss();
 
 	AT(2920) {
 		stage5_dialog_post_midboss();

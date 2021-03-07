@@ -86,15 +86,16 @@ static int iku_explosion(Enemy *e, int t) {
 	return 1;
 }
 
-void iku_mid_intro(Boss *b, int t) {
-	TIMER(&t);
+DEFINE_EXTERN_TASK(stage5_midboss_iku_explosion) {
+	STAGE_BOOKMARK(spell1);
 
-	b->pos += -1-7.0*I+10*t*(cimag(b->pos)<-200);
+	Boss *b = INIT_BOSS_ATTACK(&ARGS);
+	enemy_kill_all(&global.enemies);
 
-	FROM_TO(90, 110, 10) {
-		create_enemy3c(b->pos, ENEMY_IMMUNE, iku_slave_visual, iku_explosion, -2-0.5*_i+I*_i, _i == 1,1);
+	b->move = move_towards(VIEWPORT_W / 2 - VIEWPORT_H * I, 0.01);
+
+	// TODO: doesn't work
+	for (int x = 0; x < 3; x++) {
+		create_enemy3c(b->pos, ENEMY_IMMUNE, iku_slave_visual, iku_explosion, -2 - 0.5 * x + I * x, x == 1, 1);
 	}
-
-	AT(960)
-		enemy_kill_all(&global.enemies);
 }
