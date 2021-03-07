@@ -688,10 +688,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 
 	WAIT(2900);
 	INVOKE_TASK(spawn_midboss);
-
-	int midboss_time = WAIT_EVENT(&global.boss->events.defeated).frames;
 	STAGE_BOOKMARK(post-midboss);
-	log_debug("midboss time: %i", midboss_time);
 
 	WAIT(400);
 	// 3000
