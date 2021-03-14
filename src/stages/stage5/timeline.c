@@ -155,7 +155,7 @@ TASK(greeter_fairy, {
 	MoveParams move_enter;
 	MoveParams move_exit;
 }) {
-	Enemy *e = TASK_BIND(espawn_fairy_blue_box(ARGS.pos, ITEMS(.points = 1)));
+	Enemy *e = TASK_BIND(espawn_fairy_blue(ARGS.pos, ITEMS(.points = 1)));
 	e->move = ARGS.move_enter;
 	real speed = difficulty_value(3.5, 3.5, 3.5, 4.5);
 	real count = difficulty_value(1, 2, 3, 4);
@@ -245,21 +245,22 @@ TASK(lightburst_fairy_2, {
 
 	e->move = ARGS.move_enter;
 	INVOKE_SUBTASK_DELAYED(200, lightburst_fairy_move, {
-			.e = ENT_BOX(e),
-			.move = ARGS.move_exit
+		.e = ENT_BOX(e),
+		.move = ARGS.move_exit
 	});
 
 	real count = difficulty_value(6, 7, 8, 9);
+	int difficulty = difficulty_value(1, 2, 3, 4);
 	WAIT(70);
 	for (int x = 0; x < 70; x++) {
 		play_sfx("shot1_loop");
 		for (int i = 0; i < count; i++) {
-			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * i);
+			cmplx n = cnormalize(global.plr.pos - e->pos) * cdir(i * M_TAU / count);
 			PROJECTILE(
 				.proto = pp_bigball,
-				.pos = e->pos + 50 * n * cdir(-1.0 * x * global.diff),
+				.pos = e->pos + 50 * n * cdir(-1.0 * x * difficulty),
 				.color = RGB(0.3, 0, 0.7 + 0.3 * (i % 2)),
-				.move = move_asymptotic_simple(2.5 * n + 0.25 * global.diff * rng_sreal() * cdir(2.0 * M_PI * rng_sreal()), 3),
+				.move = move_asymptotic_simple(2.5 * n + 0.25 * difficulty * rng_sreal() * rng_dir(), 3),
 			);
 			play_sfx("shot1_loop");
 		}
@@ -277,19 +278,20 @@ TASK(lightburst_fairy_1, {
 
 	e->move = ARGS.move_enter;
 	INVOKE_SUBTASK_DELAYED(200, lightburst_fairy_move, {
-			.e = ENT_BOX(e),
-			.move = ARGS.move_exit
+		.e = ENT_BOX(e),
+		.move = ARGS.move_exit
 	});
 
 	real count = difficulty_value(6, 7, 8, 9);
+	int difficulty = difficulty_value(1, 2, 3, 4);
 	WAIT(70);
 	for (int x = 0; x < 150; x++) {
 		play_sfx("shot1_loop");
 		for (int i = 0; i < count; i++) {
-			cmplx n = cdir(carg(global.plr.pos) + 2.0 * M_PI / count * i);
+			cmplx n = cnormalize(global.plr.pos - e->pos) * cdir(i * M_TAU / count);
 			PROJECTILE(
 				.proto = pp_ball,
-				.pos = e->pos + 50 * n * cdir(-0.4 * x * global.diff),
+				.pos = e->pos + 50 * n * cdir(-0.4 * x * difficulty),
 				.color = RGB(0.3, 0, 0.7),
 				.move = move_asymptotic_simple(3 * n, 3),
 			);
@@ -302,20 +304,22 @@ TASK(lightburst_fairy_1, {
 
 TASK(laser_fairy, {
 	cmplx pos;
-	cmplx acceleration;
+	MoveParams move_enter;
+	MoveParams move_exit;
 	int reduction;
 }) {
 	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 4, .power = 2)));
 
-	e->move = move_towards(e->pos + ARGS.acceleration * 100, 0.05);
+	e->move = ARGS.move_enter;
 	WAIT(100);
 
 	int delay = difficulty_value(6, 5, 4, 3) + ARGS.reduction;
 	int amount = 700 / delay;
+	int difficulty = difficulty_value(1, 2, 3, 4);
 
 	for (int x = 0; x < amount; x++) {
-		cmplx n = cdir(carg(global.plr.pos - e->pos) + (0.2 - 0.02 * global.diff) * x);
-		float fac = (0.5 + 0.2 * global.diff);
+		cmplx n = cdir(carg(global.plr.pos - e->pos) + (0.2 - 0.02 * difficulty) * x);
+		float fac = (0.5 + 0.2 * difficulty);
 
 		// TODO: is this the correct "modern" way of invoking lasers?
 		create_lasercurve2c(e->pos, 100, 300, RGBA(0.7, 0.3, 1, 0), las_accel, fac * 4 * n, fac * 0.05 * n);
@@ -331,17 +335,17 @@ TASK(laser_fairy, {
 	}
 
 	WAIT(30);
-	e->move = move_linear(-ARGS.acceleration);
+	e->move = ARGS.move_exit;
 }
 
 TASK(lightburst_fairies_1, {
 	int num;
-	cmplx pos1;
-	cmplx pos2;
+	cmplx pos;
+	cmplx offset;
 	cmplx exit;
 }) {
 	for (int i = 0; i < ARGS.num; i++) {
-		cmplx pos = ARGS.pos1 + ARGS.pos2 * i;
+		cmplx pos = ARGS.pos + ARGS.offset * i;
 		INVOKE_TASK(lightburst_fairy_1,
 			.pos = pos,
 			.move_enter = move_towards(pos + ARGS.exit * 70 , 0.05),
@@ -353,12 +357,12 @@ TASK(lightburst_fairies_1, {
 
 TASK(lightburst_fairies_2, {
 	int num;
-	cmplx pos1;
-	cmplx pos2;
+	cmplx pos;
+	cmplx offset;
 	cmplx exit;
 }) {
 	for (int i = 0; i < ARGS.num; i++) {
-		cmplx pos = ARGS.pos1 + ARGS.pos2 * i;
+		cmplx pos = ARGS.pos + ARGS.offset * i;
 		INVOKE_TASK(lightburst_fairy_2,
 			.pos = pos,
 			.move_enter = move_towards(pos + ARGS.exit * 70 , 0.05),
@@ -369,7 +373,7 @@ TASK(lightburst_fairies_2, {
 }
 
 TASK(loop_swirl_move, {
-    MoveParams *move;
+	MoveParams *move;
 	cmplx turn;
 	cmplx retention;
 }) {
@@ -390,9 +394,9 @@ TASK(loop_swirl, {
 }) {
 	Enemy *e = TASK_BIND(espawn_swirl(ARGS.start, ITEMS(.points = 4, .power = 2)));
 
-    e->move = move_linear(ARGS.velocity);
-    INVOKE_SUBTASK_DELAYED(80, loop_swirl_move,
-        .move = &e->move,
+	e->move = move_linear(ARGS.velocity);
+	INVOKE_SUBTASK_DELAYED(80, loop_swirl_move,
+		.move = &e->move,
 		.turn = ARGS.turn,
 		.retention = ARGS.retention
     );
@@ -405,11 +409,7 @@ TASK(loop_swirl, {
 				.proto = pp_bullet,
 				.pos = e->pos,
 				.color = RGB(0.3, 0.4, 0.5),
-				.move = move_asymptotic_simple(i * 2 * ARGS.velocity * I / cabs(ARGS.velocity), 3),
-				// TODO: bullets only fire down-left with the above
-				// they should also fire in other directions correlating to the angle of "turn" the swirls make
-				//.rule = asymptotic,
-				//.args = { i*2*e->args[0]*I/cabs(e->args[0]), 3 }
+				.move = move_asymptotic_simple(i * 2 * I / cnormalize(e->move.velocity), 3),
 			);
 		}
 
@@ -446,11 +446,11 @@ TASK(limiter_fairy, {
 
 	int difficulty = difficulty_value(0.25, 0.50, 0.75, 1);
 	for (int x = 0; x < 400; x++) {
-		double base_angle = carg(global.plr.pos - e->pos);
 
 		for (int i = 1; i >= -1; i -= 2) {
-			double a = i * 0.2 - 0.1 * difficulty + i * 3.0 / (x + 1);
-			cmplx aim = cdir(base_angle + a);
+			real a = i * 0.2 - 0.1 * difficulty + i * 3.0 / (x + 1);
+			cmplx plraim = cnormalize(global.plr.pos - e->pos);
+			cmplx aim = plraim * cdir(a);
 
 			PROJECTILE(
 				.proto = pp_rice,
@@ -468,12 +468,12 @@ TASK(limiter_fairy, {
 
 TASK(limiter_fairies, {
 	int num;
-	cmplx pos1;
-	cmplx pos2;
+	cmplx pos;
+	cmplx offset;
 	cmplx exit;
 }) {
 	for (int i = 0; i < ARGS.num; i++) {
-		cmplx pos = ARGS.pos1 + ARGS.pos2 * (i % 2);
+		cmplx pos = ARGS.pos + ARGS.offset * (i % 2);
 		INVOKE_TASK(limiter_fairy,
 			.pos = pos,
 			.exit = move_linear(ARGS.exit)
@@ -495,9 +495,9 @@ TASK(miner_swirl, {
 	for (int x = 0; x < 600; x++) {
 		PROJECTILE(
 			.proto = pp_rice,
-			.pos = e->pos + 20 * cdir(2.0 * M_PI * rng_real()),
+			.pos = e->pos + 20 * cdir(M_TAU * rng_real()),
 			.color = RGB(0, 0, 255),
-			.move = move_linear(cdir(2.0 * M_PI * rng_real())),
+			.move = move_linear(cdir(M_TAU  * rng_real())),
 		);
 		play_sfx_ex("shot3", 0, false);
 		WAIT(difficulty);
@@ -555,15 +555,16 @@ TASK(miner_swirls_1, {
 TASK(superbullet_fairy, {
 	cmplx pos;
 	cmplx acceleration;
-	double offset;
+	real offset;
 }) {
 	Enemy *e = TASK_BIND(espawn_fairy_blue(ARGS.pos, ITEMS(.points = 4, .power = 2)));
 
 	e->move = move_towards(e->pos + ARGS.acceleration * 70 + ARGS.offset, 0.05);
 	WAIT(60);
 
+	int difficulty = difficulty_value(1, 2, 3, 4);
 	for (int x = 0; x < 140; x++) {
-		cmplx n = cdir(M_PI * sin(x / (8.0 + global.diff) + rng_real() * 0.1) * carg(global.plr.pos - e->pos));
+		cmplx n = cdir(M_PI * sin(x / (8.0 + difficulty) + rng_real() * 0.1) * carg(global.plr.pos - e->pos));
 		PROJECTILE(
 			.proto = pp_bullet,
 			.pos = e->pos + 50 * n,
@@ -584,7 +585,7 @@ TASK(superbullet_fairies_1, {
 }) {
 	int delay = ARGS.time / ARGS.num;
 	for (int i = 0; i < ARGS.num; i++) {
-		double offset = -15 * i * (1 - 2 * (i % 2));
+		real offset = -15 * i * (1 - 2 * (i % 2));
 		INVOKE_TASK(superbullet_fairy, {
 			.pos = VIEWPORT_W * (i % 2) + 100.0 * I + 15 * i * I,
 			.acceleration = 3 - 6 * (i % 2),
@@ -607,8 +608,8 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 270
 	INVOKE_TASK_DELAYED(270, lightburst_fairies_1, {
 		.num = 2,
-		.pos1 = VIEWPORT_W/4,
-		.pos2 = VIEWPORT_W/2,
+		.pos = VIEWPORT_W/4,
+		.offset = VIEWPORT_W/2,
 		.exit = 2.0 * I,
 	});
 
@@ -635,15 +636,16 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 700
 	INVOKE_TASK_DELAYED(700, limiter_fairies, {
 		.num = 2 + (global.diff != D_Easy),
-		.pos1 = VIEWPORT_W/4,
-		.pos2 = VIEWPORT_W/2,
+		.pos = VIEWPORT_W/4,
+		.offset = VIEWPORT_W/2,
 		.exit = I,
 	});
 
 	// 1000
 	INVOKE_TASK_DELAYED(1000, laser_fairy, {
 		.pos = VIEWPORT_W / 2,
-		.acceleration = 2.0 * I,
+		.move_enter = move_towards(VIEWPORT_W / 2 + 2.0 * I * 100, 0.05),
+		.move_exit = move_linear(-(2.0 * I)),
 		.reduction = 1,
 	});
 
@@ -671,8 +673,8 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 2500
 	INVOKE_TASK_DELAYED(2500, lightburst_fairies_1, {
 		.num = 1,
-		.pos1 = VIEWPORT_W/2,
-		.pos2 = 0,
+		.pos = VIEWPORT_W/2,
+		.offset = 0,
 		.exit = 2.0 * I,
 	});
 
@@ -680,8 +682,8 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	if (global.diff > D_Easy) {
 		INVOKE_TASK_DELAYED(2700, lightburst_fairies_1, {
 			.num = 1,
-			.pos1 = (VIEWPORT_W - 20) + (120 * I),
-			.pos2 = 0,
+			.pos = (VIEWPORT_W - 20) + (120 * I),
+			.offset = 0,
 			.exit = -2.0,
 		});
 	}
@@ -694,8 +696,8 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 3000
 	INVOKE_TASK_DELAYED(0, lightburst_fairies_2, {
 		.num = 3,
-		.pos1 = VIEWPORT_W/4,
-		.pos2 = VIEWPORT_W/4,
+		.pos = VIEWPORT_W/4,
+		.offset = VIEWPORT_W/4,
 		.exit = 2.0 * I,
 	});
 
@@ -708,14 +710,16 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 3400
 	INVOKE_TASK_DELAYED(400, laser_fairy, {
 		.pos = VIEWPORT_W / 4,
-		.acceleration = 2.0 * I,
+		.move_enter = move_towards(VIEWPORT_W / 4 + 2.0 * I * 100, 0.05),
+		.move_exit = move_linear(-(2.0 * I)),
 		.reduction = 2,
 	});
 
 	// 3400
 	INVOKE_TASK_DELAYED(400, laser_fairy, {
 		.pos = VIEWPORT_W / 4 * 3,
-		.acceleration = 2.0 * I,
+		.move_enter = move_towards(VIEWPORT_W / 4 * 3 + 2.0 * I * 100, 0.05),
+		.move_exit = move_linear(-(2.0 * I)),
 		.reduction = 2,
 	});
 
@@ -733,16 +737,16 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 5000
 	INVOKE_TASK_DELAYED(2000, lightburst_fairies_1, {
 		.num = 1,
-		.pos1 = VIEWPORT_W/2,
-		.pos2 = 0,
+		.pos = VIEWPORT_W/2,
+		.offset = 0,
 		.exit = 2.0 * I,
 	});
 
 	// 5000
 	INVOKE_TASK_DELAYED(2000, lightburst_fairies_1, {
 		.num = 1,
-		.pos1 = VIEWPORT_W/2,
-		.pos2 = 0,
+		.pos = VIEWPORT_W/2,
+		.offset = 0,
 		.exit = 2.0 * I,
 	});
 
@@ -768,8 +772,8 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 5180
 	INVOKE_TASK_DELAYED(2180, lightburst_fairies_2, {
 		.num = 1,
-		.pos1 = VIEWPORT_W/2,
-		.pos2 = 100,
+		.pos = VIEWPORT_W/2,
+		.offset = 100,
 		.exit = 2.0 * I - 0.25,
 	});
 
@@ -789,16 +793,16 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 5500
 	INVOKE_TASK_DELAYED(2500, lightburst_fairies_1, {
 		.num = 1,
-		.pos1 = VIEWPORT_W+20 + VIEWPORT_H * 0.6 * I,
-		.pos2 = 0,
+		.pos = VIEWPORT_W+20 + VIEWPORT_H * 0.6 * I,
+		.offset = 0,
 		.exit = -2 * I - 2,
 	});
 
 	// 5500
 	INVOKE_TASK_DELAYED(2500, lightburst_fairies_1, {
 		.num = 1,
-		.pos1 = -20 + VIEWPORT_H * 0.6 * I,
-		.pos2 = 0,
+		.pos = -20 + VIEWPORT_H * 0.6 * I,
+		.offset = 0,
 		.exit = -2 * I + 2,
 	});
 
@@ -813,8 +817,8 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	// 6300
 	INVOKE_TASK_DELAYED(3300, limiter_fairies, {
 		.num = 1,
-		.pos1 = VIEWPORT_W/4,
-		.pos2 = VIEWPORT_W/2,
+		.pos = VIEWPORT_W/4,
+		.offset = VIEWPORT_W/2,
 		.exit = 2 * I,
 	});
 }

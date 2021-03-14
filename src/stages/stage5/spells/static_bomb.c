@@ -90,12 +90,15 @@ DEFINE_EXTERN_TASK(stage5_midboss_iku_explosion) {
 	STAGE_BOOKMARK(spell1);
 
 	Boss *b = INIT_BOSS_ATTACK(&ARGS);
-	enemy_kill_all(&global.enemies);
 
 	b->move = move_towards(VIEWPORT_W / 2 - VIEWPORT_H * I, 0.01);
 
 	// TODO: doesn't work
-	for (int x = 0; x < 3; x++) {
+	for(int x = 0; x < 3; x++) {
 		create_enemy3c(b->pos, ENEMY_IMMUNE, iku_slave_visual, iku_explosion, -2 - 0.5 * x + I * x, x == 1, 1);
 	}
+
+	WAIT(960);
+	enemy_kill_all(&global.enemies);
+
 }
