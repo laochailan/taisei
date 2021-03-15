@@ -118,11 +118,21 @@ DECLARE_EXTERN_TASK(
 
 DECLARE_EXTERN_TASK(
 	common_easing_animate,
-	{ 
+	{
 		float *value;
 		float to;
 		int duration;
 		glm_ease_t ease;
+	}
+);
+
+DECLARE_EXTERN_TASK(
+	common_move_turn,
+	{
+		MoveParams *move_params;
+		int turn_delay;
+		int turn_duration;
+		real turn_angle;
 	}
 );
 

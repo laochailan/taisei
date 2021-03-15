@@ -372,33 +372,21 @@ TASK(lightburst_fairies_2, {
 	}
 }
 
-TASK(loop_swirl_move, {
-	MoveParams *move;
-	cmplx turn;
-	cmplx retention;
-}) {
-	int begin = creal(ARGS.turn) + 1;
-	int end = cimag(ARGS.turn) - 1;
-	int time = end - begin;
-
-	ARGS.move->retention = ARGS.retention;
-	WAIT(time / 1.5);
-	ARGS.move->retention = 1;
-}
-
 TASK(loop_swirl, {
 	cmplx start;
 	cmplx velocity;
-	cmplx turn;
-	cmplx retention;
+	real turn_angle;
+	int turn_duration;
+	int turn_delay;
 }) {
 	Enemy *e = TASK_BIND(espawn_swirl(ARGS.start, ITEMS(.points = 4, .power = 2)));
 
 	e->move = move_linear(ARGS.velocity);
-	INVOKE_SUBTASK_DELAYED(80, loop_swirl_move,
-		.move = &e->move,
-		.turn = ARGS.turn,
-		.retention = ARGS.retention
+	INVOKE_SUBTASK(common_move_turn,
+		.move_params = &e->move,
+		.turn_angle = ARGS.turn_angle,
+		.turn_duration = ARGS.turn_duration,
+		.turn_delay = ARGS.turn_delay
     );
 
 	int difficulty = 30 - difficulty_value(4, 8, 16, 24);
@@ -423,15 +411,17 @@ TASK(loop_swirls, {
 	int direction;
 	cmplx start;
 	cmplx velocity;
-	cmplx turn;
-	cmplx retention;
+	int turn_delay;
+	int turn_duration;
+	real turn_angle;
 }) {
 	for (int i = 0; i < ARGS.num; i++) {
 		INVOKE_TASK(loop_swirl, {
 			.start = VIEWPORT_W * ARGS.direction + ARGS.start * rng_sreal(),
 			.velocity = ARGS.velocity,
-			.turn = ARGS.turn * rng_sreal() + ARGS.start,
-			.retention = ARGS.retention,
+			.turn_angle = ARGS.turn_angle,
+			.turn_duration = ARGS.turn_duration,
+			.turn_delay = ARGS.turn_delay,
 		});
 		WAIT(10);
 	}
@@ -618,9 +608,9 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.num = 20,
 		.start = 200.0 * I,
 		.velocity = 4 + I,
-		.turn = 9,
-		.retention = cdir(-0.05),
-		.direction = 0,
+		.turn_angle = M_TAU,
+		.turn_delay = 80,
+		.turn_duration = 100,
 	});
 
 	// 700
@@ -628,8 +618,9 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.num = 10,
 		.start = 200 * I,
 		.velocity = -4 + I,
-		.turn = 9,
-		.retention = cdir(0.05),
+		.turn_angle = M_TAU,
+		.turn_delay = 80,
+		.turn_duration = 100,
 		.direction = 1,
 	});
 

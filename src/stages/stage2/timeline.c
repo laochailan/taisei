@@ -339,26 +339,6 @@ TASK(aimshot_fairy, { BoxedEnemy e; MoveParams move_enter; MoveParams move_exit;
 	e->move = ARGS.move_exit;
 }
 
-TASK(rotate_velocity, {
-	MoveParams *move;
-	real angle;
-	int duration;
-}) {
-	cmplx r = cdir(ARGS.angle / ARGS.duration);
-	ARGS.move->retention *= r;
-	WAIT(ARGS.duration);
-	ARGS.move->retention /= r;
-}
-
-static void set_turning_motion(Enemy *e, cmplx v, real turn_angle, int turn_delay, int turn_duration) {
-	e->move = move_linear(v);
-	INVOKE_SUBTASK_DELAYED(turn_delay, rotate_velocity,
-		.move = &e->move,
-		.angle = turn_angle,
-		.duration = turn_duration
-  	);
-}
-
 TASK(turning_fairy, {
 	BoxedEnemy e;
 	cmplx vel;
@@ -367,7 +347,13 @@ TASK(turning_fairy, {
 	int turn_duration;
 }) {
 	Enemy *e = TASK_BIND(ARGS.e);
-	set_turning_motion(e, ARGS.vel, ARGS.turn_angle, ARGS.turn_delay, ARGS.turn_duration);
+	e->move = move_linear(ARGS.vel);
+	INVOKE_SUBTASK(common_move_turn,
+		.move_params = &e->move,
+		.turn_angle = ARGS.turn_angle,
+		.turn_delay = ARGS.turn_delay,
+		.turn_duration = ARGS.turn_duration
+	);
 
 	int period = difficulty_value(70, 50, 24, 16);
 	WAIT(7 + period/2);
@@ -435,7 +421,13 @@ TASK(flea_swirl, {
 	int turn_duration;
 }) {
 	Enemy *e = TASK_BIND(espawn_swirl(ARGS.pos, ITEMS(.points = 2)));
-	set_turning_motion(e, ARGS.vel, ARGS.turn_angle, ARGS.turn_delay, ARGS.turn_duration);
+	e->move = move_linear(ARGS.vel);
+	INVOKE_SUBTASK(common_move_turn,
+		.move_params = &e->move,
+		.turn_angle = ARGS.turn_angle,
+		.turn_delay = ARGS.turn_delay,
+		.turn_duration = ARGS.turn_duration
+	);
 
 	int base_period = difficulty_value(27, 24, 21, 18);
 	int duration = 400;
