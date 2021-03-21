@@ -16,6 +16,30 @@
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
+
+void stage5_init_iku_slave(IkuSlave *slave, cmplx pos) {
+	slave->pos = pos;
+	slave->spawn_time = global.frames;
+
+}
+
+IkuSlave *stage5_midboss_slave(cmplx pos) {
+	IkuSlave *slave = TASK_HOST_ENT(IkuSlave);
+	TASK_HOST_EVENTS(slave->events);
+	stage5_init_iku_slave(slave, pos);
+
+	float alpha = 1;
+	Color *clr = RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
+	clr->a = 0;
+	slave->color = *clr;
+	slave->scale = (1 + I) * 0.7;
+	// TODO: you were here
+	// need to continue porting vvvv that stuff into this functioning
+	// including the PARTICLE
+
+	return slave;
+}
+
 void iku_lightning_particle(cmplx pos, int t) {
 	if(!(t % 5)) {
 		char *part = frand() > 0.5 ? "lightning0" : "lightning1";
@@ -116,3 +140,10 @@ int iku_induction_bullet(Projectile *p, int time) {
 	return 1;
 }
 
+Boss *stage5_spawn_iku(cmplx pos) {
+	Boss *iku = create_boss("Iku Nagae", "iku", pos);
+	boss_set_portrait(iku, "iku", NULL, "normal");
+	iku->glowcolor = *RGB(0.2, 0.4, 0.5);
+    iku->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
+	return iku;
+}

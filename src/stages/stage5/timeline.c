@@ -6,6 +6,7 @@
  * Copyright (c) 2012-2019, Andrei Alexeyev <akari@taisei-project.org>.
  */
 
+#include "move.h"
 #include "taisei.h"
 
 #include "timeline.h"
@@ -15,20 +16,6 @@
 
 #include "coroutine.h"
 #include "enemy_classes.h"
-
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
-
-TASK(boss_appear_stub, NO_ARGS) {
-	log_warn("FIXME");
-}
-
-static void stage5_dialog_pre_boss(void) {
-	PlayerMode *pm = global.plr.mode;
-	Stage5PreBossDialogEvents *e;
-	INVOKE_TASK_INDIRECT(Stage5PreBossDialog, pm->dialog->Stage5PreBoss, &e);
-	INVOKE_TASK_WHEN(&e->boss_appears, boss_appear_stub);
-	INVOKE_TASK_WHEN(&e->music_changes, common_start_bgm, "stage5boss");
-}
 
 static void stage5_dialog_post_boss(void) {
 	PlayerMode *pm = global.plr.mode;
@@ -40,99 +27,99 @@ static void stage5_dialog_post_midboss(void) {
 	INVOKE_TASK_INDIRECT(Stage5PostMidBossDialog, pm->dialog->Stage5PostMidBoss);
 }
 
-static void iku_intro(Boss *b, int t) {
-	GO_TO(b, VIEWPORT_W/2+240.0*I, 0.015);
-
-	if(t == 160)
-		stage5_dialog_pre_boss();
-}
-
-Boss* stage5_spawn_iku(cmplx pos) {
-	Boss *b = create_boss("Nagae Iku", "iku", pos);
-	boss_set_portrait(b, "iku", NULL, "normal");
-	b->glowcolor = *RGBA_MUL_ALPHA(0.2, 0.4, 0.5, 0.5);
-	b->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
-	return b;
-}
-
 static void midboss_dummy(Boss *b, int t) { }
 
-static Boss* stage5_spawn_boss(void) {
-	Boss *b = stage5_spawn_iku(VIEWPORT_W/2-200.0*I);
+TASK(magnetto_swirl_shoot, {
+	BoxedEnemy e;
+	cmplx move_to;
+}) {
+	Enemy *e = TASK_BIND(ARGS.e);
 
-	boss_add_attack(b, AT_Move, "Introduction", 4, 0, iku_intro, NULL);
-	boss_add_attack(b, AT_Normal, "Bolts1", 40, 24000, iku_bolts, NULL);
-	boss_add_attack_from_info(b, &stage5_spells.boss.atmospheric_discharge, false);
-	boss_add_attack(b, AT_Normal, "Bolts2", 45, 27000, iku_bolts2, NULL);
-	boss_add_attack_from_info(b, &stage5_spells.boss.artificial_lightning, false);
-	boss_add_attack(b, AT_Normal, "Bolts3", 50, 30000, iku_bolts3, NULL);
+	int interval = difficulty_value(12, 9, 6, 3);
+	int bullets = difficulty_value(1, 2, 2, 2);
+	int bullet_dir = difficulty_value(0, 0, 1, 0);
+	int bullet_dir2 = difficulty_value(1, 1, 1, 0);
+	for(int t = 0; t <= 140; t++, YIELD) {
+		if (t % interval == 0) {
+			for(int i = 0; i < bullets; i++) {
+				cmplx dir = cdir((M_PI*i + M_PI/8*sin(2*(t-140)/70.0 * M_PI) + carg(ARGS.move_to - e->pos)));
 
-	if(global.diff < D_Hard) {
-		boss_add_attack_from_info(b, &stage5_spells.boss.induction_field, false);
-	} else {
-		boss_add_attack_from_info(b, &stage5_spells.boss.inductive_resonance, false);
-	}
-	boss_add_attack_from_info(b, &stage5_spells.boss.natural_cathode, false);
-
-	boss_add_attack_from_info(b, &stage5_spells.extra.overload, false);
-
-	boss_engage(b);
-	return b;
-}
-
-static int stage5_magnetto(Enemy *e, int t) {
-	TIMER(&t);
-
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 5, ITEM_POWER, 5);
-		return 1;
-	}
-
-	if(t < 0) {
-		return 1;
-	}
-
-	cmplx offset = (frand()-0.5)*10 + (frand()-0.5)*10.0*I;
-	iku_lightning_particle(e->pos + 3*offset, t);
-
-	FROM_TO(0, 70, 1) {
-		GO_TO(e, e->args[0], 0.1);
-	}
-
-	AT(140) {
-		play_sound("redirect");
-		play_sfx_delayed("redirect", 0, false, 180);
-	}
-
-	FROM_TO(140, 320, 1) {
-		e->pos += 3 * cexp(I*(carg(e->args[1] - e->pos) + M_PI/2));
-		GO_TO(e, e->args[1], pow((t - 140) / 300.0, 3));
-	}
-
-	FROM_TO_SND("shot1_loop", 140, 280, 1 + 2 * (1 + D_Lunatic - global.diff)) {
-		// complex dir = cexp(I*carg(global.plr.pos - e->pos));
-
-		for(int i = 0; i < 2 - (global.diff == D_Easy); ++i) {
-			cmplx dir = cexp(I*(M_PI*i + M_PI/8*sin(2*(t-140)/70.0 * M_PI) + carg(e->args[1] - e->pos)));
-
-			PROJECTILE(
-				.proto = pp_ball,
-				.pos = e->pos,
-				.color = RGBA(0.1 + 0.5 * pow((t - 140) / 140.0, 2), 0.0, 0.8, 0.0),
-				.rule = accelerated,
-				.args = {
-					(-2 + (global.diff == D_Hard)) * dir,
-					0.02 * dir * (!i || global.diff != D_Lunatic),
-				},
-			);
+				PROJECTILE(
+					.proto = pp_ball,
+					.pos = e->pos,
+					.color = RGBA(0.1 + 0.5 * pow((t - 140) / 140.0, 2), 0.0, 0.8, 0.0),
+					.move = move_accelerated((-2 + bullet_dir) * dir, 0.035 * dir * (!i || bullet_dir2)),
+				);
+			}
 		}
 	}
+}
 
-	AT(380) {
-		return ACTION_DESTROY;
+TASK(magnetto_swirl_move, {
+	BoxedEnemy e;
+	cmplx move_to;
+}) {
+	Enemy *e = TASK_BIND(ARGS.e);
+
+	float f = rng_real();
+	cmplx offset = (f - 0.5) * 10 + (f - 0.5) * 10.0 * I;
+	cmplx swoop = 2.75 * cdir(M_PI/2);
+
+	for(int t = 0; t <= 140; t++, YIELD) {
+		iku_lightning_particle(e->pos + 3 * offset, t);
+		e->move = move_towards(ARGS.move_to, pow(t / 300.0, 3));
+		e->move.acceleration = cnormalize(ARGS.move_to - e->pos) * swoop;
+		WAIT(1);
 	}
+	e->move = move_towards(ARGS.move_to, 0.5);
+	WAIT(50);
+	enemy_kill(e);
+}
 
-	return 1;
+TASK(magnetto_swirl, {
+	cmplx pos;
+	MoveParams move_enter;
+	cmplx move_to;
+}) {
+	Enemy *e = TASK_BIND(espawn_swirl(ARGS.pos, ITEMS(.points = 5, .power = 5)));
+	e->move = ARGS.move_enter;
+
+	WAIT(140);
+	play_sfx("redirect");
+	play_sfx_delayed("redirect", 0, false, 180);
+
+	INVOKE_TASK(magnetto_swirl_move, {
+		.e = ENT_BOX(e),
+		.move_to = ARGS.move_to
+	});
+	INVOKE_TASK(magnetto_swirl_shoot, {
+		.e = ENT_BOX(e),
+		.move_to = ARGS.move_to
+	});
+
+}
+
+TASK(magnetto_swirls, {
+	int num;
+}) {
+	enemy_kill_all(&global.enemies);
+	double ofs = 42 * 2;
+	int count = ARGS.num - 1;
+	for (int i = 0; i < ARGS.num; i++) {
+
+		INVOKE_TASK(magnetto_swirl,
+			.pos = -ofs / 4 + (-ofs / 4 + i * (VIEWPORT_H-2 * ofs) / count) * I, // src1 (e->pos)
+			.move_enter = move_towards((ofs + (ofs + i * (VIEWPORT_H-2 * ofs) / count) * I), 0.1), // dst1 (e->args[0])
+			.move_to = (VIEWPORT_W - ofs) + ( ofs + (count - i) * (VIEWPORT_H-2 * ofs) / count) * I // dst2 (e->args[1])
+		);
+
+		INVOKE_TASK(magnetto_swirl,
+			.pos = (VIEWPORT_W + ofs / 4) + (-ofs / 4 + (count - i) * (VIEWPORT_H-2 * ofs) / count) * I,
+			.move_enter = move_towards((VIEWPORT_W - ofs) + ( ofs + (count - i) * (VIEWPORT_H-2 * ofs) / count) * I, 0.1), // dst2 (e->args[0])
+			.move_to = ofs + (ofs + i * (VIEWPORT_H-2 * ofs) / count) * I // dst1 (e->args[1])
+		);
+		WAIT(20);
+	}
 }
 
 TASK(spawn_midboss, NO_ARGS) {
@@ -148,6 +135,40 @@ TASK(spawn_midboss, NO_ARGS) {
 	boss_add_attack(b, AT_Move, "", 0, 0, midboss_dummy, NULL);
 
 	boss_engage(b);
+}
+
+TASK(boss_appear, { BoxedBoss boss; }) {
+	Boss *boss = TASK_BIND(ARGS.boss);
+	boss->move = move_towards(VIEWPORT_W/2 + 240.0 * I, 0.015);
+}
+
+TASK(spawn_boss, NO_ARGS) {
+	STAGE_BOOKMARK_DELAYED(120, boss);
+
+	Boss *boss = global.boss = stage5_spawn_iku(VIEWPORT_W/2-200.0*I);
+
+	PlayerMode *pm = global.plr.mode;
+    Stage5PreBossDialogEvents *e;
+    INVOKE_TASK_INDIRECT(Stage5PreBossDialog, pm->dialog->Stage5PreBoss, &e);
+    INVOKE_TASK_WHEN(&e->boss_appears, boss_appear, ENT_BOX(boss));
+    INVOKE_TASK_WHEN(&e->music_changes, common_start_bgm, "stage3boss");
+    WAIT_EVENT(&global.dialog->events.fadeout_began);
+
+	boss_add_attack(boss, AT_Normal, "Bolts1", 40, 24000, iku_bolts, NULL);
+	boss_add_attack_from_info(boss, &stage5_spells.boss.atmospheric_discharge, false);
+	boss_add_attack(boss, AT_Normal, "Bolts2", 45, 27000, iku_bolts2, NULL);
+	boss_add_attack_from_info(boss, &stage5_spells.boss.artificial_lightning, false);
+	boss_add_attack(boss, AT_Normal, "Bolts3", 50, 30000, iku_bolts3, NULL);
+
+	if(global.diff < D_Hard) {
+		boss_add_attack_from_info(boss, &stage5_spells.boss.induction_field, false);
+	} else {
+		boss_add_attack_from_info(boss, &stage5_spells.boss.inductive_resonance, false);
+	}
+	boss_add_attack_from_info(boss, &stage5_spells.boss.natural_cathode, false);
+	boss_add_attack_from_info(boss, &stage5_spells.extra.overload, false);
+
+	boss_engage(boss);
 }
 
 TASK(greeter_fairy, {
@@ -186,7 +207,6 @@ TASK(greeter_fairies_3, {
 	for (int i = 0; i < ARGS.num; i++) {
 		cmplx pos = VIEWPORT_W * (i % 2) + 120 * I;
 		real xdir = 1 - 2 * (i % 2);
-
 		INVOKE_TASK(greeter_fairy,
 			.pos = pos,
 			.move_enter = move_towards(pos + 6 * (30 - 60 * (i % 2)) + I, 0.05),
@@ -195,7 +215,6 @@ TASK(greeter_fairies_3, {
 		WAIT(60);
 	}
 }
-
 
 TASK(greeter_fairies_2, {
 	int num;
@@ -401,7 +420,7 @@ TASK(loop_swirl, {
 			);
 		}
 
-		play_sound("shot1");
+		play_sfx("shot1");
 		WAIT(difficulty);
 	}
 }
@@ -424,6 +443,24 @@ TASK(loop_swirls, {
 			.turn_delay = ARGS.turn_delay,
 		});
 		WAIT(10);
+	}
+}
+
+TASK(loop_swirls_2, {
+	int num;
+	int duration;
+}) {
+	for (int i = 0; i < ARGS.num; i++) {
+		float f = rng_real();
+		real xdir = 1 - 2 * (i % 2);
+		INVOKE_TASK(loop_swirl, {
+			.start = VIEWPORT_W/2 + 300 * sin(i * 20) * cos (2 * i * 20),
+			.velocity = 2 * cdir(M_PI * f) + I,
+			.turn_angle = M_PI/2 * xdir,
+			.turn_duration = 50,
+			.turn_delay = 100,
+		});
+		WAIT(ARGS.duration / ARGS.num);
 	}
 }
 
@@ -561,7 +598,7 @@ TASK(superbullet_fairy, {
 			.color = RGB(0.6, 0, 0),
 			.move = move_asymptotic_simple(2 * n, 10),
 		);
-		play_sound("shot1");
+		play_sfx("shot1");
 		WAIT(1);
 	}
 
@@ -682,8 +719,10 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	WAIT(2900);
 	INVOKE_TASK(spawn_midboss);
 	STAGE_BOOKMARK(post-midboss);
+	WAIT(1200);
+	stage5_dialog_post_midboss();
+	WAIT(200);
 
-	WAIT(400);
 	// 3000
 	INVOKE_TASK_DELAYED(0, lightburst_fairies_2, {
 		.num = 3,
@@ -712,6 +751,12 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.move_enter = move_towards(VIEWPORT_W / 4 * 3 + 2.0 * I * 100, 0.05),
 		.move_exit = move_linear(-(2.0 * I)),
 		.reduction = 2,
+	});
+
+	// 4200
+	INVOKE_TASK_DELAYED(1200, loop_swirls_2, {
+		.num = difficulty_value(47, 53, 57, 60),
+		.duration = 800,
 	});
 
 	// 4260
@@ -797,6 +842,10 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.exit = -2 * I + 2,
 	});
 
+	// 5600
+	INVOKE_TASK_DELAYED(2600, magnetto_swirls, {
+		.num = 5,
+	});
 
 	// 6100
 	INVOKE_TASK_DELAYED(3100, miner_swirls_1, {
@@ -812,65 +861,20 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.offset = VIEWPORT_W/2,
 		.exit = 2 * I,
 	});
+
+	WAIT(3700);
+
+	stage_unlock_bgm("stage5boss");
+
+	INVOKE_TASK(spawn_boss);
+
+	while(!global.boss) YIELD;
+	WAIT_EVENT(&global.boss->events.defeated);
+
+	WAIT(240);
+	stage5_dialog_post_boss();
+	WAIT_EVENT(&global.dialog->events.fadeout_began);
+
+	WAIT(5);
+	stage_finish(GAMEOVER_SCORESCREEN);
 }
-
-void stage5_events(void) {
-	TIMER(&global.timer);
-
-	// TODO: ??????
-	/* FROM_TO(200, 1000, 20-3*global.diff) { */
-	/* 	float f = frand(); */
-	/* 	create_enemy3c( */
-	/* 		VIEWPORT_W/2+300*sin(global.frames)*cos(2*global.frames), */
-	/* 		400, */
-	/* 		Swirl, */
-	/* 		stage5_swirl, */
-	/* 		2*cexp(I*M_PI*f)+I, */
-	/* 		60 + 100.0*I, */
-	/* 		cexp(0.01*I*(1-2*(f<0.5))) */
-	/* 	); */
-	/* } */
-
-
-	AT(2920) {
-		stage5_dialog_post_midboss();
-
-		// TODO: determine if this hack is still required with the new dialogue system
-		global.timer++;
-	}
-
-	AT(5600) {
-		enemy_kill_all(&global.enemies);
-	}
-
-	{
-		int cnt = 5;
-		int step = 10;
-		double ofs = 42*2;
-
-		FROM_TO(5620, 5620 + step*cnt-1, step) {
-			cmplx src1 = -ofs/4               + (-ofs/4 +      _i    * (VIEWPORT_H-2*ofs)/(cnt-1))*I;
-			cmplx src2 = (VIEWPORT_W + ofs/4) + (-ofs/4 + (cnt-_i-1) * (VIEWPORT_H-2*ofs)/(cnt-1))*I;
-			cmplx dst1 = ofs                  + ( ofs   +      _i    * (VIEWPORT_H-2*ofs)/(cnt-1))*I;
-			cmplx dst2 = (VIEWPORT_W - ofs)   + ( ofs   + (cnt-_i-1) * (VIEWPORT_H-2*ofs)/(cnt-1))*I;
-
-			create_enemy2c(src1, 2000, Swirl, stage5_magnetto, dst1, dst2);
-			create_enemy2c(src2, 2000, Swirl, stage5_magnetto, dst2, dst1);
-		}
-	}
-
-	AT(6960) {
-		stage_unlock_bgm("stage5");
-		global.boss = stage5_spawn_boss();
-	}
-
-	AT(6980) {
-		stage_unlock_bgm("stage5boss");
-		stage5_dialog_post_boss();
-	}
-
-	AT(6985) {
-		stage_finish(GAMEOVER_SCORESCREEN);
-	}
-}
-
