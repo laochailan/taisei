@@ -78,7 +78,6 @@ MODERNIZE_THIS_FILE_AND_REMOVE_ME
 }*/
 
 TASK(slave, { cmplx pos; int number; }) {
-	int x = ARGS.number;
 	IkuSlave *slave = stage5_midboss_slave(ARGS.pos);
 	MoveParams move = move_towards(0, 0.03);
 	move.attraction_point = VIEWPORT_W / 2 + 2.0 * I * 100;
@@ -88,7 +87,7 @@ TASK(slave, { cmplx pos; int number; }) {
 		.move = move,
 	});
 
-	for(int i = 0; x < 210; x++) {
+	for(int i = 0; i < 210; i++) {
 		if(i % 5 == 0) {
 			PROJECTILE(
 				.proto = pp_soul,
