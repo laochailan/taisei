@@ -16,11 +16,53 @@
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
+static void iku_slave_draw(EntityInterface *e) {
+	IkuSlave *slave = ENT_CAST(e, IkuSlave);
+	//int time = global.frames - slave->spawn_time;
+	r_draw_sprite(&(SpriteParams) {
+		.pos.as_cmplx = slave->pos,
+		.sprite_ptr = slave->sprites.lightning0,
+		.scale.as_cmplx = slave->scale,
+		.color = &slave->color,
+	});
+}
+
+TASK(iku_slave_particles, { BoxedIkuSlave slave; }) {
+	IkuSlave *slave = TASK_BIND(ARGS.slave);
+
+	int period = 5;
+	WAIT(rng_irange(0, period));
+
+	for(;;WAIT(period)) {
+		float alpha = 1;
+
+		Color *clr = RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
+		clr->a = 0;
+
+		PARTICLE(
+			.sprite_ptr = slave->sprites.particle,
+			.pos = 0,
+			.color = clr,
+			.draw_rule = pdraw_timeout_scale(2, 0.01),
+			.flags = PFLAG_REQUIREDPARTICLE,
+		);
+	}
+
+}
 
 void stage5_init_iku_slave(IkuSlave *slave, cmplx pos) {
+	float alpha = 1;
 	slave->pos = pos;
 	slave->spawn_time = global.frames;
+	slave->ent.draw_layer = LAYER_BOSS - 1;
+	slave->ent.draw_func = iku_slave_draw;
+	slave->scale = (1 + I) * 0.7;
+	slave->color = *RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
+	slave->sprites.lightning0 = res_sprite("part/lightning0");
+	slave->sprites.lightning1 = res_sprite("part/lightning1");
+	slave->sprites.particle = res_sprite("part/lightningball");
 
+	INVOKE_TASK(iku_slave_particles, ENT_BOX(slave));
 }
 
 IkuSlave *stage5_midboss_slave(cmplx pos) {
@@ -28,16 +70,15 @@ IkuSlave *stage5_midboss_slave(cmplx pos) {
 	TASK_HOST_EVENTS(slave->events);
 	stage5_init_iku_slave(slave, pos);
 
-	float alpha = 1;
-	Color *clr = RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
-	clr->a = 0;
-	slave->color = *clr;
-	slave->scale = (1 + I) * 0.7;
-	// TODO: you were here
-	// need to continue porting vvvv that stuff into this functioning
-	// including the PARTICLE
-
 	return slave;
+}
+
+DEFINE_EXTERN_TASK(iku_slave_move) {
+	IkuSlave *slave = TASK_BIND(ARGS.slave);
+
+	for(;; YIELD) {
+		move_update(&slave->pos, &ARGS.move);
+	}
 }
 
 void iku_lightning_particle(cmplx pos, int t) {
@@ -51,40 +92,6 @@ void iku_lightning_particle(cmplx pos, int t) {
 			.draw_rule = Fade,
 			.flags = PFLAG_REQUIREDPARTICLE,
 			.angle = frand()*2*M_PI,
-		);
-	}
-}
-
-void iku_slave_visual(Enemy *e, int t, bool render) {
-	if(render) {
-		return;
-	}
-
-	cmplx offset = (frand()-0.5)*10 + (frand()-0.5)*10.0*I;
-
-	if(e->args[2] && !(t % 5)) {
-		iku_lightning_particle(e->pos + 3*offset, t);
-	}
-
-	if(!(t % 3)) {
-		float alpha = 1;
-
-		if(!e->args[2]) {
-			alpha *= 0.03;
-		}
-
-		Color *clr = RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
-		clr->a = 0;
-
-		PARTICLE(
-			.sprite = "lightningball",
-			.pos = 0,
-			.color = clr,
-			.draw_rule = Fade,
-			.rule = enemy_flare,
-			.timeout = 50,
-			.args = { offset*0.1, add_ref(e) },
-			.flags = PFLAG_REQUIREDPARTICLE,
 		);
 	}
 }

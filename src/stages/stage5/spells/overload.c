@@ -138,7 +138,7 @@ static void iku_overload_fire_trigger_bullet(void) {
 }
 
 static void iku_overload_slave_visual(Enemy *e, int t, bool render) {
-	iku_slave_visual(e, t, render);
+	//iku_slave_visual(e, t, render);
 
 	if(render) {
 		return;
