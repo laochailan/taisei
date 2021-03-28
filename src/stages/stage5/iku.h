@@ -15,7 +15,7 @@
 
 DEFINE_ENTITY_TYPE(IkuSlave, {
 	struct {
-		Sprite *lightning0, *lightning1, *particle;
+		Sprite *lightning0, *lightning1, *cloud;
 	} sprites;
 
 	cmplx pos;

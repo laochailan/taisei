@@ -18,33 +18,50 @@ MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
 static void iku_slave_draw(EntityInterface *e) {
 	IkuSlave *slave = ENT_CAST(e, IkuSlave);
-	//int time = global.frames - slave->spawn_time;
 	r_draw_sprite(&(SpriteParams) {
 		.pos.as_cmplx = slave->pos,
-		.sprite_ptr = slave->sprites.lightning0,
+		.sprite_ptr = slave->sprites.cloud,
 		.scale.as_cmplx = slave->scale,
 		.color = &slave->color,
 	});
 }
 
-TASK(iku_slave_particles, { BoxedIkuSlave slave; }) {
+void iku_lightning_particle(cmplx pos, int t) {
+	if(!(t % 5)) {
+		char *part = frand() > 0.5 ? "lightning0" : "lightning1";
+		PARTICLE(
+			.sprite = part,
+			.pos = pos,
+			.color = RGBA(1.0, 1.0, 1.0, 0.0),
+			.timeout = 20,
+			.draw_rule = Fade,
+			.flags = PFLAG_REQUIREDPARTICLE,
+			.angle = frand()*2*M_PI,
+		);
+	}
+}
+
+TASK(iku_slave_visual, { BoxedIkuSlave slave; }) {
 	IkuSlave *slave = TASK_BIND(ARGS.slave);
 
-	int period = 5;
+	int period = 3;
 	WAIT(rng_irange(0, period));
 
 	for(;;WAIT(period)) {
+		cmplx offset = (frand()-0.5)*10 + (frand()-0.5)*10.0*I;
 		float alpha = 1;
 
 		Color *clr = RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
 		clr->a = 0;
 
 		PARTICLE(
-			.sprite_ptr = slave->sprites.particle,
-			.pos = 0,
+			.sprite_ptr = slave->sprites.cloud,
+			.pos = slave->pos,
 			.color = clr,
-			.draw_rule = pdraw_timeout_scale(2, 0.01),
+			.draw_rule = pdraw_timeout_fade(2, 0.01),
+			.timeout = 50,
 			.flags = PFLAG_REQUIREDPARTICLE,
+			.move = move_linear(offset*0.2),
 		);
 	}
 
@@ -56,13 +73,13 @@ void stage5_init_iku_slave(IkuSlave *slave, cmplx pos) {
 	slave->spawn_time = global.frames;
 	slave->ent.draw_layer = LAYER_BOSS - 1;
 	slave->ent.draw_func = iku_slave_draw;
-	slave->scale = (1 + I) * 0.7;
+	slave->scale = (1 + I);
 	slave->color = *RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
 	slave->sprites.lightning0 = res_sprite("part/lightning0");
 	slave->sprites.lightning1 = res_sprite("part/lightning1");
-	slave->sprites.particle = res_sprite("part/lightningball");
+	slave->sprites.cloud = res_sprite("part/lightningball");
 
-	INVOKE_TASK(iku_slave_particles, ENT_BOX(slave));
+	INVOKE_TASK(iku_slave_visual, ENT_BOX(slave));
 }
 
 IkuSlave *stage5_midboss_slave(cmplx pos) {
@@ -81,20 +98,6 @@ DEFINE_EXTERN_TASK(iku_slave_move) {
 	}
 }
 
-void iku_lightning_particle(cmplx pos, int t) {
-	if(!(t % 5)) {
-		char *part = frand() > 0.5 ? "lightning0" : "lightning1";
-		PARTICLE(
-			.sprite = part,
-			.pos = pos,
-			.color = RGBA(1.0, 1.0, 1.0, 0.0),
-			.timeout = 20,
-			.draw_rule = Fade,
-			.flags = PFLAG_REQUIREDPARTICLE,
-			.angle = frand()*2*M_PI,
-		);
-	}
-}
 
 void iku_nonspell_spawn_cloud(void) {
 	tsrand_fill(4);
