@@ -48,17 +48,18 @@ TASK(iku_slave_visual, { BoxedIkuSlave slave; }) {
 	WAIT(rng_irange(0, period));
 
 	for(;;WAIT(period)) {
+		RNG_ARRAY(rand, 2);
+		cmplx offset = vrng_sreal(rand[0]) * 5 + vrng_sreal(rand[1]) * 5 * I;
 		PARTICLE(
 			.sprite_ptr = slave->sprites.cloud,
 			.pos = slave->pos,
 			.color = &slave->color,
 			.draw_rule = pdraw_timeout_fade(2, 0.01),
 			.timeout = 50,
-			.move = move_linear(rng_dir()),
+			.move = move_linear(offset * 0.2),
 			.flags = PFLAG_REQUIREDPARTICLE,
 		);
 	}
-
 }
 
 void stage5_init_iku_slave(IkuSlave *slave, cmplx pos) {
