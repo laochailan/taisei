@@ -48,33 +48,26 @@ TASK(iku_slave_visual, { BoxedIkuSlave slave; }) {
 	WAIT(rng_irange(0, period));
 
 	for(;;WAIT(period)) {
-		cmplx offset = (frand()-0.5)*10 + (frand()-0.5)*10.0*I;
-		float alpha = 1;
-
-		Color *clr = RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
-		clr->a = 0;
-
 		PARTICLE(
 			.sprite_ptr = slave->sprites.cloud,
 			.pos = slave->pos,
-			.color = clr,
+			.color = &slave->color,
 			.draw_rule = pdraw_timeout_fade(2, 0.01),
 			.timeout = 50,
+			.move = move_linear(rng_dir()),
 			.flags = PFLAG_REQUIREDPARTICLE,
-			.move = move_linear(offset*0.2),
 		);
 	}
 
 }
 
 void stage5_init_iku_slave(IkuSlave *slave, cmplx pos) {
-	float alpha = 1;
 	slave->pos = pos;
 	slave->spawn_time = global.frames;
 	slave->ent.draw_layer = LAYER_BOSS - 1;
 	slave->ent.draw_func = iku_slave_draw;
 	slave->scale = (1 + I);
-	slave->color = *RGBA_MUL_ALPHA(0.1*alpha, 0.1*alpha, 0.6*alpha, 0.5*alpha);
+	slave->color = *RGBA_MUL_ALPHA(0.1, 0.1, 0.6, 0.5);
 	slave->sprites.lightning0 = res_sprite("part/lightning0");
 	slave->sprites.lightning1 = res_sprite("part/lightning1");
 	slave->sprites.cloud = res_sprite("part/lightningball");
@@ -151,9 +144,9 @@ int iku_induction_bullet(Projectile *p, int time) {
 }
 
 Boss *stage5_spawn_iku(cmplx pos) {
-	Boss *iku = create_boss("Iku Nagae", "iku", pos);
+	Boss *iku = create_boss("Nagae Iku", "iku", pos);
 	boss_set_portrait(iku, "iku", NULL, "normal");
 	iku->glowcolor = *RGB(0.2, 0.4, 0.5);
-    iku->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
+	iku->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
 	return iku;
 }

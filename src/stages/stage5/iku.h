@@ -31,7 +31,6 @@ DEFINE_ENTITY_TYPE(IkuSlave, {
 void stage5_init_iku_slave(IkuSlave *slave, cmplx pos);
 IkuSlave *stage5_midboss_slave(cmplx pos);
 
-void iku_slave_visual(Enemy*, int, bool);
 void iku_nonspell_spawn_cloud(void);
 void iku_lightning_particle(cmplx, int);
 

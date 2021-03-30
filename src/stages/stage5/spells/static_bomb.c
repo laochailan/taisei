@@ -31,8 +31,8 @@ TASK(slave_laser_shot, { BoxedIkuSlave slave; int delay; }) {
 	int difficulty = difficulty_value(90, 80, 70, 60);
 	int amount = 800 - ARGS.delay;
 	for(int x = 0; x <  (amount / difficulty); x++) {
-		int rand = rng_real();
-		create_laserline(slave->pos, 10 * cdir(carg(global.plr.pos - slave->pos) + 0.04 * I * (1 - 2 * rand)), 60, 120, RGBA(1, 0.3, 1, 0));
+		real rand = rng_sreal();
+		create_laserline(slave->pos, 10 * cnormalize(global.plr.pos - slave->pos) * cdir(0.04 * rand), 60, 120, RGBA(1, 0.3, 1, 0));
 		play_sfx_delayed("laser1", 0, true, 45);
 		WAIT(difficulty);
 	}
@@ -43,7 +43,7 @@ TASK(slave_bullet_shot, { BoxedIkuSlave slave; }) {
 	int difficulty = difficulty_value(5, 4, 3, 2);
 	for(int x = 0; x < (520 / difficulty); x++) {
 		for(int i = 1; i >= -1; i -= 2) {
-			int rand = rng_real();
+			real rand = rng_real();
 			PROJECTILE(
 				.proto = pp_rice,
 				.pos = slave->pos,
@@ -66,7 +66,7 @@ TASK(slave_explode, { BoxedIkuSlave slave; }) {
 		.pos = slave->pos,
 		.timeout = 60 + 10 * vrng_real(ray_rand[2]),
 		.draw_rule = pdraw_timeout_fade(1, 0),
-		.angle = vrng_real(ray_rand[4]) * M_TAU,
+		.angle = vrng_angle(ray_rand[4]),
 		.layer = LAYER_PARTICLE_HIGH | 0x42,
 		.flags = PFLAG_REQUIREDPARTICLE,
 	);
@@ -78,7 +78,7 @@ TASK(slave_explode, { BoxedIkuSlave slave; }) {
 		.color = RGBA(0.3 * vrng_real(halo_rand[0]), 0.3 * vrng_real(halo_rand[1]), 1.0, 0),
 		.timeout = 200 + 24 * vrng_real(halo_rand[2]),
 		.draw_rule = pdraw_timeout_fade(1, 0),
-		.angle = vrng_real(halo_rand[4]) * M_TAU,
+		.angle = vrng_angle(halo_rand[4]),
 		.layer = LAYER_PARTICLE_HIGH | 0x41,
 		.flags = PFLAG_REQUIREDPARTICLE,
 	);
@@ -90,9 +90,11 @@ TASK(slave, { cmplx pos; int number; }) {
 	IkuSlave *slave = stage5_midboss_slave(ARGS.pos);
 	MoveParams move = move_towards(VIEWPORT_W / 4 + ARGS.number * 40 + 2.0 * I * 90 - 5 * ARGS.number * 2.0 * I, 0.03);
 
-	ItemCounts item_drop;
-	item_drop = *ITEMS(.power = 5, .points = 5, .life = (ARGS.number == 1) ? 0 : 1 );
-	INVOKE_TASK_WHEN(&slave->events.despawned, common_drop_items, &slave->pos, item_drop);
+	INVOKE_TASK_WHEN(&slave->events.despawned, common_drop_items, &slave->pos, {
+		.power = 5,
+		.points = 5,
+		.life = (ARGS.number == 1) ? 0 : 1
+	});
 	INVOKE_SUBTASK(iku_slave_move, {
 		.slave = ENT_BOX(slave),
 		.move = move,
