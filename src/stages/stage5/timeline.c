@@ -121,7 +121,7 @@ TASK(magnetto_swirls, {
 
 TASK(spawn_midboss, NO_ARGS) {
 	STAGE_BOOKMARK(midboss);
-	Boss *b = global.boss = create_boss("Bombs?", "iku_mid", VIEWPORT_W+800.0*I);
+	Boss *b = global.boss = create_boss("Bombs?", "iku_mid", VIEWPORT_W + 800.0 * I);
 	b->glowcolor = *RGB(0.2, 0.4, 0.5);
 	b->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
 
@@ -142,7 +142,7 @@ TASK(boss_appear, { BoxedBoss boss; }) {
 TASK(spawn_boss, NO_ARGS) {
 	STAGE_BOOKMARK_DELAYED(120, boss);
 
-	Boss *boss = global.boss = stage5_spawn_iku(VIEWPORT_W/2-200.0*I);
+	Boss *boss = global.boss = stage5_spawn_iku(VIEWPORT_W/2 - 200.0 * I);
 
 	PlayerMode *pm = global.plr.mode;
 	Stage5PreBossDialogEvents *e;
@@ -586,9 +586,9 @@ TASK(superbullet_fairy, {
 	e->move = move_towards(e->pos + ARGS.acceleration * 70 + ARGS.offset, 0.05);
 	WAIT(60);
 
-	int difficulty = difficulty_value(1, 2, 3, 4);
+	float difficulty = difficulty_value(9.0, 10.0, 11.0, 12.0);
 	for(int x = 0; x < 140; x++, YIELD) {
-		cmplx n = cdir(M_PI * sin(x / (8.0 + difficulty) + rng_sreal() * 0.1) + cnormalize(global.plr.pos - e->pos));
+		cmplx n = cdir(M_PI * sin(x / difficulty + rng_sreal() * 0.1)) * cnormalize(global.plr.pos - e->pos);
 		PROJECTILE(
 			.proto = pp_bullet,
 			.pos = e->pos + 50 * n,
@@ -667,8 +667,8 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 
 	// 1000
 	INVOKE_TASK_DELAYED(1000, laser_fairy, {
-		.pos = VIEWPORT_W / 2,
-		.move_enter = move_towards(VIEWPORT_W / 2 + 2.0 * I * 100, 0.05),
+		.pos = VIEWPORT_W/2,
+		.move_enter = move_towards(VIEWPORT_W/2 + 2.0 * I * 100, 0.05),
 		.move_exit = move_linear(-(2.0 * I)),
 		.reduction = 1,
 	});
@@ -735,16 +735,16 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 
 	// 3400
 	INVOKE_TASK_DELAYED(400, laser_fairy, {
-		.pos = VIEWPORT_W / 4,
-		.move_enter = move_towards(VIEWPORT_W / 4 + 2.0 * I * 100, 0.05),
+		.pos = VIEWPORT_W/4,
+		.move_enter = move_towards(VIEWPORT_W/4 + 2.0 * I * 100, 0.05),
 		.move_exit = move_linear(-(2.0 * I)),
 		.reduction = 2,
 	});
 
 	// 3400
 	INVOKE_TASK_DELAYED(400, laser_fairy, {
-		.pos = VIEWPORT_W / 4 * 3,
-		.move_enter = move_towards(VIEWPORT_W / 4 * 3 + 2.0 * I * 100, 0.05),
+		.pos = VIEWPORT_W/4 * 3,
+		.move_enter = move_towards(VIEWPORT_W/4 * 3 + 2.0 * I * 100, 0.05),
 		.move_exit = move_linear(-(2.0 * I)),
 		.reduction = 2,
 	});

@@ -109,6 +109,7 @@ TASK(slave, { cmplx pos; int number; }) {
 	INVOKE_SUBTASK_DELAYED(880, slave_explode, { .slave = ENT_BOX(slave) });
 
 	WAIT(890);
+
 	coevent_signal_once(&slave->events.despawned);
 }
 
