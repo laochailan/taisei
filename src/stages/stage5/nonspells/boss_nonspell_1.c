@@ -36,20 +36,19 @@ DEFINE_EXTERN_TASK(stage5_boss_nonspell_1) {
 	INVOKE_SUBTASK(spawn_clouds);
 	INVOKE_SUBTASK(boss_move, { .boss = ENT_BOX(boss) });
 
+	int offset = difficulty_value(0, 1, 2, 3);
+	int count = difficulty_value(11, 12, 13, 14);
 	for(int x = 0;; x += WAIT(50)) {
-		int i, c = 10+global.diff;
-		for(i = 0; i < c; i++) {
+		for(int i = 0; i < count; i++) {
 			PROJECTILE(
 				.proto = pp_ball,
 				.pos = boss->pos,
 				.color = RGBA(0.4, 1.0, 1.0, 0),
-				.move = move_asymptotic_simple((i + 2) * 0.4 * cnormalize(global.plr.pos - boss->pos) + 0.2 * (global.diff - 1) * rng_sreal(), 3),
+				.move = move_asymptotic_simple((i + 2) * 0.4 * cnormalize(global.plr.pos - boss->pos) + 0.2 * offset * rng_sreal(), 3),
 			);
 		}
-
 		play_sfx("shot2");
 		play_sfx("redirect");
 	}
-
 }
 
