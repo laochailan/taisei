@@ -51,6 +51,7 @@ struct stage5_spells_s stage5_spells = {
 
 static void stage5_start(void) {
 	stage5_drawsys_init();
+	stage5_bg_init_fullstage();
 	stage_start_bgm("stage5");
 	stage_set_voltage_thresholds(255, 480, 860, 1250);
 	INVOKE_TASK(stage5_timeline);
@@ -113,7 +114,6 @@ StageProcs stage5_procs = {
 	.preload = stage5_preload,
 	.end = stage5_end,
 	.draw = stage5_draw,
-	.update = stage5_update,
 	.shader_rules = stage5_shaders,
 	.spellpractice_procs = &stage5_spell_procs,
 };
@@ -123,6 +123,5 @@ StageProcs stage5_spell_procs = {
 	.preload = stage5_preload,
 	.end = stage5_end,
 	.draw = stage5_draw,
-	.update = stage5_update,
 	.shader_rules = stage5_shaders,
 };
