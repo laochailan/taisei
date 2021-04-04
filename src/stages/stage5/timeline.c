@@ -63,7 +63,9 @@ TASK(magnetto_swirl_move, {
 	cmplx swoop = 2.75 * cdir(M_PI/2);
 
 	for(int t = 0; t <= 140; t++, YIELD) {
-		iku_lightning_particle(e->pos + 15 * rng_real() * offset, t);
+		if(!(t % 5)) {
+			iku_lightning_particle(e->pos + 15 * rng_real() * offset);
+		}
 		e->move = move_towards(ARGS.move_to, pow(t / 300.0, 3));
 		e->move.acceleration = cnormalize(ARGS.move_to - e->pos) * swoop;
 		WAIT(1);
@@ -151,7 +153,8 @@ TASK(spawn_boss, NO_ARGS) {
 	INVOKE_TASK_WHEN(&e->music_changes, common_start_bgm, "stage3boss");
 	WAIT_EVENT(&global.dialog->events.fadeout_began);
 
-	boss_add_attack(boss, AT_Normal, "Bolts1", 40, 24000, iku_bolts, NULL);
+//	boss_add_attack(boss, AT_Normal, "Bolts1", 40, 24000, iku_bolts, NULL);
+	boss_add_attack_task(boss, AT_Normal, "Bolts1", 40, 24000, TASK_INDIRECT(BossAttack, stage5_boss_nonspell_1), NULL);
 	boss_add_attack_from_info(boss, &stage5_spells.boss.atmospheric_discharge, false);
 	boss_add_attack(boss, AT_Normal, "Bolts2", 45, 27000, iku_bolts2, NULL);
 	boss_add_attack_from_info(boss, &stage5_spells.boss.artificial_lightning, false);
@@ -712,8 +715,9 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		});
 	}
 
-	WAIT(2900);
-	INVOKE_TASK(spawn_midboss);
+	STAGE_BOOKMARK_DELAYED(2900, pre-midboss);
+	INVOKE_TASK_DELAYED(2900, spawn_midboss);
+	while(!global.boss) YIELD;
 	STAGE_BOOKMARK(post-midboss);
 	WAIT(1200);
 	stage5_dialog_post_midboss();
@@ -821,7 +825,6 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.acceleration = 2 + I,
 	});
 
-
 	// 5500
 	INVOKE_TASK_DELAYED(2500, lightburst_fairies_1, {
 		.num = 1,
@@ -858,14 +861,14 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.exit = 2 * I,
 	});
 
+	STAGE_BOOKMARK_DELAYED(3400, pre-boss);
+
 	WAIT(3700);
-
-	stage_unlock_bgm("stage5boss");
-
 	INVOKE_TASK(spawn_boss);
-
 	while(!global.boss) YIELD;
 	WAIT_EVENT(&global.boss->events.defeated);
+
+	stage_unlock_bgm("stage5boss");
 
 	WAIT(240);
 	stage5_dialog_post_boss();

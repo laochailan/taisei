@@ -64,7 +64,7 @@ static int lightning_slave(Enemy *e, int t) {
 			if(projectile_in_viewport(p)) {
 				for(int i = 0; i < 3; ++i) {
 					tsrand_fill(2);
-					iku_lightning_particle(p->pos + 5 * afrand(0) * cexp(I*M_PI*2*afrand(1)), 0);
+					iku_lightning_particle(p->pos + 5 * afrand(0) * cexp(I*M_PI*2*afrand(1)));
 				}
 
 				play_sfx_ex("shot3", 0, false);

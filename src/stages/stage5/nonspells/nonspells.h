@@ -15,8 +15,9 @@
 
 #include "stages/stage5/iku.h"
 
-void iku_bolts(Boss*, int);
 void iku_bolts2(Boss*, int);
 void iku_bolts3(Boss*, int);
+
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage5_boss_nonspell_1, BossAttack);
 
 #endif // IGUARD_stages_stage5_nonspells_nonspells_h

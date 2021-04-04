@@ -28,19 +28,18 @@ DEFINE_ENTITY_TYPE(IkuSlave, {
 	) events;
 });
 
-void stage5_init_iku_slave(IkuSlave *slave, cmplx pos);
-IkuSlave *stage5_midboss_slave(cmplx pos);
-
-void iku_nonspell_spawn_cloud(void);
-void iku_lightning_particle(cmplx, int);
-
-int iku_induction_bullet(Projectile*, int);
-
-Boss *stage5_spawn_iku(cmplx pos);
-
 DECLARE_EXTERN_TASK(iku_slave_move, {
 	BoxedIkuSlave slave;
 	MoveParams move;
 });
+
+void stage5_init_iku_slave(IkuSlave *slave, cmplx pos);
+void iku_nonspell_spawn_cloud(void);
+void iku_lightning_particle(cmplx);
+
+Boss *stage5_spawn_iku(cmplx pos);
+IkuSlave *stage5_midboss_slave(cmplx pos);
+
+int iku_induction_bullet(Projectile*, int);
 
 #endif // IGUARD_stages_stage5_iku_h

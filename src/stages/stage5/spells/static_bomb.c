@@ -114,7 +114,7 @@ TASK(slave, { cmplx pos; int number; }) {
 }
 
 DEFINE_EXTERN_TASK(stage5_midboss_iku_explosion) {
-	STAGE_BOOKMARK(spell1);
+	STAGE_BOOKMARK(midspell1);
 	Boss *b = INIT_BOSS_ATTACK(&ARGS);
 	b->move = move_towards(VIEWPORT_W / 2 - VIEWPORT_H * I, 0.01);
 	WAIT(50);

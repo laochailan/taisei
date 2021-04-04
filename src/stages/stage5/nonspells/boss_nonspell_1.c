@@ -10,46 +10,46 @@
 
 #include "nonspells.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
-
-void iku_bolts(Boss *b, int time) {
-	int t = time % 400;
-	TIMER(&t);
-
-	FROM_TO(0, 400, 2) {
+TASK(spawn_clouds, NO_ARGS) {
+	for(int i = 0;; i += WAIT(2)) {
 		iku_nonspell_spawn_cloud();
 	}
+}
 
-	FROM_TO(60, 400, 50) {
+TASK(boss_move, { BoxedBoss boss; }) {
+	Boss *boss = TASK_BIND(ARGS.boss);
+	for(;; YIELD) {
+		boss->move = move_towards(100 + 300.0 * I, 0.02);
+		WAIT(100);
+		boss->move = move_towards(VIEWPORT_W/2 + 100.0 * I, 0.02);
+		WAIT(100);
+		boss->move = move_towards(VIEWPORT_W - 100 + 300.0 * I, 0.02);
+		WAIT(100);
+		boss->move = move_towards(VIEWPORT_W/2 + 100.0 * I, 0.02);
+	}
+}
+
+DEFINE_EXTERN_TASK(stage5_boss_nonspell_1) {
+	STAGE_BOOKMARK(nonspell1);
+	Boss *boss = INIT_BOSS_ATTACK(&ARGS);
+
+	INVOKE_SUBTASK(spawn_clouds);
+	INVOKE_SUBTASK(boss_move, { .boss = ENT_BOX(boss) });
+
+	for(int x = 0;; x += WAIT(50)) {
 		int i, c = 10+global.diff;
-
 		for(i = 0; i < c; i++) {
 			PROJECTILE(
 				.proto = pp_ball,
-				.pos = b->pos,
+				.pos = boss->pos,
 				.color = RGBA(0.4, 1.0, 1.0, 0),
-				.rule = asymptotic,
-				.args = {
-					(i+2)*0.4*cexp(I*carg(global.plr.pos-b->pos))+0.2*(global.diff-1)*frand(),
-					3
-				},
+				.move = move_asymptotic_simple((i + 2) * 0.4 * cnormalize(global.plr.pos - boss->pos) + 0.2 * (global.diff - 1) * rng_sreal(), 3),
 			);
 		}
 
-		play_sound("shot2");
-		play_sound("redirect");
+		play_sfx("shot2");
+		play_sfx("redirect");
 	}
 
-	FROM_TO(0, 70, 1)
-		GO_TO(b, 100+300.0*I, 0.02);
-
-	FROM_TO(100, 200, 1)
-		GO_TO(b, VIEWPORT_W/2+100.0*I, 0.02);
-
-	FROM_TO(230, 300, 1)
-		GO_TO(b, VIEWPORT_W-100+300.0*I, 0.02);
-
-	FROM_TO(330, 400, 1)
-		GO_TO(b, VIEWPORT_W/2+100.0*I, 0.02);
-
 }
+

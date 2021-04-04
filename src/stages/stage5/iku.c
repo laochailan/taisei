@@ -14,8 +14,6 @@
 
 #include "common_tasks.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
-
 static void iku_slave_draw(EntityInterface *e) {
 	IkuSlave *slave = ENT_CAST(e, IkuSlave);
 	r_draw_sprite(&(SpriteParams) {
@@ -26,19 +24,16 @@ static void iku_slave_draw(EntityInterface *e) {
 	});
 }
 
-void iku_lightning_particle(cmplx pos, int t) {
-	if(!(t % 5)) {
-		char *part = frand() > 0.5 ? "lightning0" : "lightning1";
-		PARTICLE(
-			.sprite = part,
-			.pos = pos,
-			.color = RGBA(1.0, 1.0, 1.0, 0.0),
-			.timeout = 20,
-			.draw_rule = Fade,
-			.flags = PFLAG_REQUIREDPARTICLE,
-			.angle = frand()*2*M_PI,
-		);
-	}
+void iku_lightning_particle(cmplx pos) {
+	char *part = rng_chance(0.5) ? "lightning0" : "lightning1";
+	PARTICLE(
+		.sprite = part,
+		.pos = pos,
+		.color = RGBA(1.0, 1.0, 1.0, 0.0),
+		.timeout = 20,
+		.draw_rule = pdraw_timeout_fade(0.8, 0.0),
+		.angle = rng_real() * M_TAU,
+	);
 }
 
 TASK(iku_slave_visual, { BoxedIkuSlave slave; }) {
@@ -50,6 +45,7 @@ TASK(iku_slave_visual, { BoxedIkuSlave slave; }) {
 	for(;;WAIT(period)) {
 		RNG_ARRAY(rand, 2);
 		cmplx offset = vrng_sreal(rand[0]) * 5 + vrng_sreal(rand[1]) * 5 * I;
+		iku_lightning_particle(slave->pos);
 		PARTICLE(
 			.sprite_ptr = slave->sprites.cloud,
 			.pos = slave->pos,
@@ -92,56 +88,21 @@ DEFINE_EXTERN_TASK(iku_slave_move) {
 	}
 }
 
-
 void iku_nonspell_spawn_cloud(void) {
-	tsrand_fill(4);
-	float v = (afrand(2)+afrand(3))*0.5+1.0;
+	RNG_ARRAY(rand, 4);
+	float v = (vrng_sreal(rand[2]) + vrng_sreal(rand[3])) * 0.5 + 1.0;
 
 	PROJECTILE(
 		// FIXME: add prototype, or shove it into the basic ones somehow,
 		// or just replace this with some thing else
-		.sprite_ptr = get_sprite("part/lightningball"),
-		.size = 48 * (1+I),
-		.collision_size = 21.6 * (1+I),
-
-		.pos = VIEWPORT_W*afrand(0)-15.0*I,
+		.sprite_ptr = res_sprite("part/lightningball"),
+		.size = 48 * (1 + I),
+		.collision_size = 21.6 * (1 + I),
+		.pos = VIEWPORT_W * vrng_sreal(rand[0]) - 15.0 * I,
 		.color = RGBA_MUL_ALPHA(0.2, 0.0, 0.4, 0.6),
-		.rule = accelerated,
-		.args = {
-			1-2*afrand(1)+v*I,
-			-0.01*I
-		},
+		.move = move_accelerated(1 - 2 * vrng_sreal(rand[1]) + v * I, -0.01 * I),
 		.shader = "sprite_default",
 	);
-}
-
-static cmplx induction_bullet_traj(Projectile *p, float t) {
-	return p->pos0 + p->args[0]*t*cexp(p->args[1]*t);
-}
-
-int iku_induction_bullet(Projectile *p, int time) {
-	if(time < 0) {
-		return ACTION_ACK;
-	}
-
-	float t = time*sqrt(global.diff);
-
-	if(global.diff > D_Normal && !p->args[2]) {
-		t = time*0.6;
-		t = 230-t;
-		if(t < 0)
-			return ACTION_DESTROY;
-	}
-
-	p->pos = induction_bullet_traj(p,t);
-
-	if(time == 0) {
-		// don't lerp; the spawn position is very different on hard/lunatic and would cause false hits
-		p->prevpos = p->pos;
-	}
-
-	p->angle = carg(p->args[0]*cexp(p->args[1]*t)*(1+p->args[1]*t));
-	return 1;
 }
 
 Boss *stage5_spawn_iku(cmplx pos) {
@@ -150,4 +111,30 @@ Boss *stage5_spawn_iku(cmplx pos) {
 	iku->glowcolor = *RGB(0.2, 0.4, 0.5);
 	iku->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
 	return iku;
+}
+
+//TODO: last one to modernize
+int iku_induction_bullet(Projectile *p, int time) {
+	if(time < 0) {
+		return ACTION_ACK;
+	}
+
+	float t = time * sqrt(global.diff);
+
+	if(global.diff > D_Normal && !p->args[2]) {
+		t = time*0.6;
+		t = 230-t;
+		if(t < 0)
+			return ACTION_DESTROY;
+	}
+
+	p->pos = p->pos0 + p->args[0] * t * cexp(p->args[1] * t);
+
+	if(time == 0) {
+		// don't lerp; the spawn position is very different on hard/lunatic and would cause false hits
+		p->prevpos = p->pos;
+	}
+
+	p->angle = carg(p->args[0] * cexp(p->args[1] * t) * (1 + p->args[1] * t));
+	return 1;
 }

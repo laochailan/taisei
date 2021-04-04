@@ -38,8 +38,8 @@ void iku_bolts3(Boss *b, int time) {
 			);
 		}
 
-		play_sound("shot2");
-		play_sound("redirect");
+		play_sfx("shot2");
+		play_sfx("redirect");
 	}
 
 	FROM_TO_SND("shot1_loop", 0, 400, 5-global.diff)
