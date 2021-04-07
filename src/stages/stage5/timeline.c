@@ -58,9 +58,7 @@ TASK(magnetto_swirl_move, {
 }) {
 	Enemy *e = TASK_BIND(ARGS.e);
 
-	float f = rng_real();
 	cmplx swoop = 2.75 * cdir(M_PI/2);
-
 	for(int t = 0; t <= 140; t += WAIT(1)) {
 		if(!(t % 5)) {
 			cmplx offset = rng_dir();
