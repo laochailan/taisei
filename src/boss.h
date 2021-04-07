@@ -74,7 +74,7 @@ struct AttackInfo {
 
 		IDs of AT_ExtraSpell attacks may overlap with those of other types.
 
-		Most importantly DO NOT CHANGE ENSTABILISHED IDs unless you absolutely must.
+		Most importantly DO NOT CHANGE ESTABLISHED IDs unless you absolutely must.
 		Doing so is going to break replays, progress files, and anything that stores stage IDs permanently.
 		Stage IDs are an internal detail invisible to the player, so they don't need to have any kind of fancy ordering.
 	*/

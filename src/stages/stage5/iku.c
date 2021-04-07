@@ -68,6 +68,7 @@ void stage5_init_iku_slave(IkuSlave *slave, cmplx pos) {
 	slave->sprites.lightning0 = res_sprite("part/lightning0");
 	slave->sprites.lightning1 = res_sprite("part/lightning1");
 	slave->sprites.cloud = res_sprite("part/lightningball");
+	slave->sprites.dot = res_sprite("dot");
 
 	INVOKE_TASK(iku_slave_visual, ENT_BOX(slave));
 }
@@ -113,28 +114,31 @@ Boss *stage5_spawn_iku(cmplx pos) {
 	return iku;
 }
 
-//TODO: last one to modernize
-int iku_induction_bullet(Projectile *p, int time) {
-	if(time < 0) {
-		return ACTION_ACK;
+DEFINE_EXTERN_TASK(iku_induction_bullet) {
+	Projectile *p = TASK_BIND(ARGS.p);
+	cmplx m1 = ARGS.m1;
+	cmplx m2 = ARGS.m2;
+
+	for(int time = 0;; time += WAIT(1)) {
+		int t = time * sqrt(global.diff);
+		if(global.diff > D_Normal && ARGS.mode) {
+			t = time*0.6;
+			t = 230-t;
+		}
+
+		p->pos = p->pos0 + m1 * t * cexp(m2 * t);
+
+		if(time == 0) {
+			// don't lerp; the spawn position is very different on hard/lunatic and would cause false hits
+			p->prevpos = p->pos;
+		}
+
+		p->angle = carg(m1 * cexp(m2 * t) * (1 + m2 * t));
 	}
+}
 
-	float t = time * sqrt(global.diff);
-
-	if(global.diff > D_Normal && !p->args[2]) {
-		t = time*0.6;
-		t = 230-t;
-		if(t < 0)
-			return ACTION_DESTROY;
+DEFINE_EXTERN_TASK(iku_spawn_clouds) {
+	for(int i = 0;; i += WAIT(2)) {
+		iku_nonspell_spawn_cloud();
 	}
-
-	p->pos = p->pos0 + p->args[0] * t * cexp(p->args[1] * t);
-
-	if(time == 0) {
-		// don't lerp; the spawn position is very different on hard/lunatic and would cause false hits
-		p->prevpos = p->pos;
-	}
-
-	p->angle = carg(p->args[0] * cexp(p->args[1] * t) * (1 + p->args[1] * t));
-	return 1;
 }

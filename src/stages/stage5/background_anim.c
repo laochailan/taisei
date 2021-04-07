@@ -63,3 +63,13 @@ void stage5_bg_init_fullstage(void) {
 	stage_3d_context.cam.far = 20000;
 	INVOKE_TASK(animate_bg, draw_data);
 }
+
+void stage5_bg_init_spellpractice(void) {
+	Stage5DrawData *draw_data = stage5_get_draw_data();
+	INVOKE_TASK(camera_down, draw_data);
+
+	stage_3d_context.cam.aspect = STAGE3D_DEFAULT_ASPECT; // FIXME
+	stage_3d_context.cam.near = 100;
+	stage_3d_context.cam.far = 20000;
+	INVOKE_TASK(animate_bg, draw_data);
+}

@@ -123,17 +123,17 @@ TASK(magnetto_swirls, {
 
 TASK(spawn_midboss, NO_ARGS) {
 	STAGE_BOOKMARK(midboss);
-	Boss *b = global.boss = create_boss("Bombs?", "iku_mid", VIEWPORT_W + 800.0 * I);
-	b->glowcolor = *RGB(0.2, 0.4, 0.5);
-	b->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
+	Boss *boss = global.boss = create_boss("Bombs?", "iku_mid", VIEWPORT_W + 800.0 * I);
+	boss->glowcolor = *RGB(0.2, 0.4, 0.5);
+	boss->shadowcolor = *RGBA_MUL_ALPHA(0.65, 0.2, 0.75, 0.5);
 
-	Attack *a = boss_add_attack_task(b, AT_SurvivalSpell, "Discharge Bombs", 16, 10, TASK_INDIRECT(BossAttack, stage5_midboss_iku_explosion), NULL);
+	Attack *a = boss_add_attack_from_info(boss, &stage5_spells.mid.static_bomb, false);
 	boss_set_attack_bonus(a, 5);
 
 	// suppress the boss death effects (this triggers the "boss fleeing" case)
-	boss_add_attack(b, AT_Move, "", 0, 0, midboss_dummy, NULL);
-
-	boss_engage(b);
+	// TODO: investigate why the death effect doesn't work (points/items still spawn off-screen)
+	boss_add_attack(boss, AT_Move, "", 0, 0, midboss_dummy, NULL);
+	boss_engage(boss);
 }
 
 TASK(boss_appear, { BoxedBoss boss; }) {
@@ -143,29 +143,29 @@ TASK(boss_appear, { BoxedBoss boss; }) {
 
 TASK(spawn_boss, NO_ARGS) {
 	STAGE_BOOKMARK_DELAYED(120, boss);
-
 	Boss *boss = global.boss = stage5_spawn_iku(VIEWPORT_W/2 - 200.0 * I);
-
 	PlayerMode *pm = global.plr.mode;
 	Stage5PreBossDialogEvents *e;
+
 	INVOKE_TASK_INDIRECT(Stage5PreBossDialog, pm->dialog->Stage5PreBoss, &e);
 	INVOKE_TASK_WHEN(&e->boss_appears, boss_appear, ENT_BOX(boss));
 	INVOKE_TASK_WHEN(&e->music_changes, common_start_bgm, "stage3boss");
 	WAIT_EVENT(&global.dialog->events.fadeout_began);
 
-//	boss_add_attack(boss, AT_Normal, "Bolts1", 40, 24000, iku_bolts, NULL);
 	boss_add_attack_task(boss, AT_Normal, "Bolts1", 40, 24000, TASK_INDIRECT(BossAttack, stage5_boss_nonspell_1), NULL);
 	boss_add_attack_from_info(boss, &stage5_spells.boss.atmospheric_discharge, false);
-	boss_add_attack(boss, AT_Normal, "Bolts2", 45, 27000, iku_bolts2, NULL);
-	boss_add_attack_from_info(boss, &stage5_spells.boss.artificial_lightning, false);
-	boss_add_attack(boss, AT_Normal, "Bolts3", 50, 30000, iku_bolts3, NULL);
 
+	boss_add_attack_task(boss, AT_Normal, "Bolts2", 45, 27000, TASK_INDIRECT(BossAttack, stage5_boss_nonspell_2), NULL);
+	boss_add_attack_from_info(boss, &stage5_spells.boss.artificial_lightning, false);
+
+	boss_add_attack_task(boss, AT_Normal, "Bolts3", 50, 30000, TASK_INDIRECT(BossAttack, stage5_boss_nonspell_3), NULL);
 	if(global.diff < D_Hard) {
 		boss_add_attack_from_info(boss, &stage5_spells.boss.induction_field, false);
 	} else {
 		boss_add_attack_from_info(boss, &stage5_spells.boss.inductive_resonance, false);
 	}
 	boss_add_attack_from_info(boss, &stage5_spells.boss.natural_cathode, false);
+
 	boss_add_attack_from_info(boss, &stage5_spells.extra.overload, false);
 
 	boss_engage(boss);
@@ -622,10 +622,6 @@ TASK(superbullet_fairies_1, {
 }
 
 DEFINE_EXTERN_TASK(stage5_timeline) {
-	YIELD;
-
-	STAGE_BOOKMARK_DELAYED(60, init);
-
 	// 60
 	INVOKE_TASK_DELAYED(60, greeter_fairies_1, {
 		.num = 7,
@@ -660,9 +656,9 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.direction = 1,
 	});
 
-	// 700
-	INVOKE_TASK_DELAYED(700, limiter_fairies, {
-		.num = 2 + (global.diff != D_Easy),
+	// 870/920
+	INVOKE_TASK_DELAYED(difficulty_value(920, 870, 870, 870), limiter_fairies, {
+		.num = difficulty_value(2, 3, 3, 3),
 		.pos = VIEWPORT_W/4,
 		.offset = VIEWPORT_W/2,
 		.exit = I,
@@ -677,9 +673,10 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 	});
 
 	// 1400
-	INVOKE_TASK_DELAYED(1400, miner_swirls_1, {
+	int miner_time = difficulty_value(1700, 1600, 1500, 1400);
+	INVOKE_TASK_DELAYED(miner_time, miner_swirls_1, {
 		.num = difficulty_value(15, 20, 25, 30),
-		.time = 1000,
+		.time = 2560 - miner_time,
 		.start = 200.0 * I,
 		.velocity = -3.0 + 2.0 * I,
 	});

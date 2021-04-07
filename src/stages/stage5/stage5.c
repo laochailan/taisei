@@ -6,6 +6,7 @@
  * Copyright (c) 2012-2019, Andrei Alexeyev <akari@taisei-project.org>.
  */
 
+#include "boss.h"
 #include "taisei.h"
 
 #include "stage5.h"
@@ -20,32 +21,46 @@
 #include "common_tasks.h"
 
 struct stage5_spells_s stage5_spells = {
+	.mid = {
+		.static_bomb = {
+			{ 16, 17, 18, 19}, AT_SurvivalSpell, "High Voltage “Static Bomb”", 15, 44000,
+			NULL, NULL, BOSS_DEFAULT_GO_POS, 5,
+			TASK_INDIRECT_INIT(BossAttack, stage5_midboss_static_bomb)
+		}
+	},
+
 	.boss = {
 		.atmospheric_discharge = {
 			{ 0,  1,  2,  3}, AT_Spellcard, "High Voltage “Atmospheric Discharge”", 60, 44000,
-			iku_atmospheric, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5
+			NULL, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5,
+			TASK_INDIRECT_INIT(BossAttack, stage5_spell_atmospheric_discharge)
 		},
 		.artificial_lightning = {
 			{ 4,  5,  6,  7}, AT_Spellcard, "Charge Sign “Artificial Lightning”", 75, 60000,
-			iku_lightning, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5
+			NULL, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5,
+			TASK_INDIRECT_INIT(BossAttack, stage5_spell_artificial_lightning)
 		},
 		.induction_field = {
 			{12, 13, -1, -1}, AT_Spellcard, "Current Sign “Induction Field”", 60, 50000,
-			iku_induction, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5
+			NULL, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5,
+			TASK_INDIRECT_INIT(BossAttack, stage5_spell_induction)
 		},
 		.inductive_resonance = {
 			{-1, -1, 14, 15}, AT_Spellcard, "Current Sign “Inductive Resonance”", 60, 50000,
-			iku_induction, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5
+			NULL, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5,
+			TASK_INDIRECT_INIT(BossAttack, stage5_spell_induction)
 		},
 		.natural_cathode = {
 			{ 8,  9, 10, 11}, AT_Spellcard, "Spark Sign “Natural Cathode”", 60, 44000,
-			iku_cathode, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5
+			NULL, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5,
+			TASK_INDIRECT_INIT(BossAttack, stage5_spell_natural_cathode)
 		},
 	},
 
 	.extra.overload = {
 		{ 0,  1,  2,  3}, AT_ExtraSpell, "Circuit Sign “Overload”", 60, 44000,
-		iku_overload, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5
+		NULL, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5,
+		TASK_INDIRECT_INIT(BossAttack, stage5_spell_overload)
 	},
 };
 
@@ -98,7 +113,8 @@ static void stage5_end(void) {
 }
 
 static void stage5_spellpractice_start(void) {
-	stage5_start();
+	stage5_drawsys_init();
+	stage5_bg_init_spellpractice();
 
 	global.boss = stage5_spawn_iku(BOSS_DEFAULT_SPAWN_POS);
 	boss_add_attack_from_info(global.boss, global.stage->spell, true);

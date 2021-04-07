@@ -10,61 +10,63 @@
 
 #include "spells.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
-
-void iku_atmospheric(Boss *b, int time) {
-	if(time < 0) {
-		GO_TO(b, VIEWPORT_W/2+200.0*I, 0.06);
-		return;
-	}
-
-	int t = time % 500;
-	TIMER(&t);
-
-	GO_TO(b,VIEWPORT_W/2+tanh(sin(time/100))*(200-100*(global.diff==D_Easy))+I*VIEWPORT_H/3+I*(cos(t/200)-1)*50,0.03);
-
-	FROM_TO(0, 500, 23-2*global.diff) {
-		tsrand_fill(4);
-		cmplx p1 = VIEWPORT_W*afrand(0) + VIEWPORT_H/2*I*afrand(1);
-		cmplx p2 = p1 + (120+20*global.diff)*cexp(0.5*I-afrand(2)*I)*(1-2*(afrand(3) > 0.5));
-
-		int i;
-		int c = 6+global.diff;
-
-		for(i = -c*0.5; i <= c*0.5; i++) {
-			PROJECTILE(
-				.proto = pp_ball,
-				.pos = p1+(p2-p1)/c*i,
-				.color = RGBA(1-1/(1+fabs(0.1*i)), 0.5-0.1*abs(i), 1, 0),
-				.rule = accelerated,
-				.args = {
-					0, (0.004+0.001*global.diff)*cexp(I*carg(p2-p1)+I*M_PI/2+0.2*I*i)
-				},
-			);
-		}
-
-		play_sound("shot_special1");
-		play_sound("redirect");
-	}
-
-	FROM_TO(0, 500, 7-global.diff) {
+TASK(cloud_shoot, NO_ARGS) {
+	for(int x = 0;; x += WAIT(difficulty_value(6, 5, 4, 3))) {
 		if(global.diff >= D_Hard) {
 			PROJECTILE(
 				.proto = pp_thickrice,
-				.pos = VIEWPORT_W*frand(),
-				.color = RGB(0,0.3,0.7),
-				.rule = accelerated,
-				.args = { 0, 0.01*I }
+				.pos = VIEWPORT_W * rng_real(),
+				.color = RGB(0, 0.3, 0.7),
+				.move = move_accelerated(0, 0.01 * I),
 			);
-		}
-		else {
+		} else {
 			PROJECTILE(
 				.proto = pp_rice,
-				.pos = VIEWPORT_W*frand(),
-				.color = RGB(0,0.3,0.7),
-				.rule = linear,
-				.args = { 2*I }
+				.pos = VIEWPORT_W * rng_real(),
+				.color = RGB(0, 0.3, 0.7),
+				.move = move_linear(2 * I),
 			);
 		}
+		YIELD;
+	}
+}
+
+TASK(ball_shoot, NO_ARGS) {
+	int difficulty = difficulty_value(1, 2, 3, 4);
+	for(int x = 0;; x += WAIT(difficulty_value(19, 17, 15, 13))) {
+		RNG_ARRAY(rand, 4);
+		cmplx p1 = VIEWPORT_W * vrng_real(rand[0]) + VIEWPORT_H/2 * I * vrng_real(rand[1]);
+		cmplx p2 = p1 + (120 + 20 * difficulty) * cdir(0.5 - vrng_real(rand[2])) * (1 - 2 * (vrng_real(rand[3]) > 0.5));
+
+		int count = difficulty_value(7, 8, 9, 10);
+		for(int i = -count * 0.5; i <= count * 0.5; i++) {
+			PROJECTILE(
+				.proto = pp_ball,
+				.pos = p1 + (p2 - p1) / count * i,
+				.color = RGBA(1 - 1 / (1 + fabs(0.1 * i)), 0.5 - 0.1 * abs(i), 1, 0),
+				.move = move_accelerated(0, (0.004 + 0.001 * difficulty) * cnormalize(p2 - p1) * cdir(M_PI/2 + 0.2 * i)),
+			);
+			YIELD;
+		}
+		play_sfx("shot_special1");
+		play_sfx("redirect");
+	}
+}
+
+DEFINE_EXTERN_TASK(stage5_spell_atmospheric_discharge) {
+	Boss *boss = INIT_BOSS_ATTACK(&ARGS);
+	boss->move = move_towards(VIEWPORT_W/2 + 200.0 * I, 0.06);
+	BEGIN_BOSS_ATTACK(&ARGS);
+
+	Rect wander_bounds = viewport_bounds(64);
+	wander_bounds.top += 64;
+	wander_bounds.bottom = VIEWPORT_H * 0.4;
+
+	INVOKE_SUBTASK(ball_shoot);
+	INVOKE_SUBTASK(cloud_shoot);
+
+	boss->move.attraction = 0.03;
+	for(;;WAIT(100)) {
+		boss->move.attraction_point = common_wander(boss->pos, VIEWPORT_W * 0.3, wander_bounds);
 	}
 }

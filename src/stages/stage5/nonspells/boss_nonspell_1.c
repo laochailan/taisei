@@ -10,12 +10,6 @@
 
 #include "nonspells.h"
 
-TASK(spawn_clouds, NO_ARGS) {
-	for(int i = 0;; i += WAIT(2)) {
-		iku_nonspell_spawn_cloud();
-	}
-}
-
 TASK(boss_move, { BoxedBoss boss; }) {
 	Boss *boss = TASK_BIND(ARGS.boss);
 	for(;; YIELD) {
@@ -32,8 +26,9 @@ TASK(boss_move, { BoxedBoss boss; }) {
 DEFINE_EXTERN_TASK(stage5_boss_nonspell_1) {
 	STAGE_BOOKMARK(nonspell1);
 	Boss *boss = INIT_BOSS_ATTACK(&ARGS);
+	BEGIN_BOSS_ATTACK(&ARGS);
 
-	INVOKE_SUBTASK(spawn_clouds);
+	INVOKE_SUBTASK(iku_spawn_clouds);
 	INVOKE_SUBTASK(boss_move, { .boss = ENT_BOX(boss) });
 
 	int offset = difficulty_value(0, 1, 2, 3);
