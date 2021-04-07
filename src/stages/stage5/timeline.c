@@ -59,16 +59,15 @@ TASK(magnetto_swirl_move, {
 	Enemy *e = TASK_BIND(ARGS.e);
 
 	float f = rng_real();
-	cmplx offset = (f - 0.5) * 10 + (f - 0.5) * 10.0 * I;
 	cmplx swoop = 2.75 * cdir(M_PI/2);
 
-	for(int t = 0; t <= 140; t++, YIELD) {
+	for(int t = 0; t <= 140; t += WAIT(1)) {
 		if(!(t % 5)) {
+			cmplx offset = rng_dir();
 			iku_lightning_particle(e->pos + 15 * rng_real() * offset);
 		}
 		e->move = move_towards(ARGS.move_to, pow(t / 300.0, 3));
 		e->move.acceleration = cnormalize(ARGS.move_to - e->pos) * swoop;
-		WAIT(1);
 	}
 	e->move = move_towards(ARGS.move_to, 0.5);
 	WAIT(50);
@@ -102,7 +101,7 @@ TASK(magnetto_swirls, {
 	int num;
 }) {
 	enemy_kill_all(&global.enemies);
-	double ofs = 42 * 2;
+	real ofs = 42 * 2;
 	int count = ARGS.num - 1;
 	for(int i = 0; i < ARGS.num; i++) {
 
@@ -337,7 +336,7 @@ TASK(laser_fairy, {
 	int difficulty = difficulty_value(1, 2, 3, 4);
 
 	for(int x = 0; x < amount; x++) {
-		cmplx n = cdir(cnormalize(global.plr.pos - e->pos) + (0.2 - 0.02 * difficulty) * x);
+		cmplx n = cnormalize(global.plr.pos - e->pos) * cdir((0.2 - 0.02 * difficulty) * x);
 		real fac = (0.5 + 0.2 * difficulty);
 
 		// TODO: is this the correct "modern" way of invoking lasers?
@@ -451,7 +450,7 @@ TASK(loop_swirls_2, {
 	int duration;
 }) {
 	for(int i = 0; i < ARGS.num; i++) {
-		float f = rng_real();
+		real f = rng_real();
 		real xdir = 1 - 2 * (i % 2);
 		INVOKE_TASK(loop_swirl, {
 			.start = VIEWPORT_W/2 + 300 * sin(i * 20) * cos (2 * i * 20),

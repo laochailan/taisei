@@ -12,7 +12,7 @@
 
 TASK(boss_move, { BoxedBoss boss; }) {
 	Boss *boss = TASK_BIND(ARGS.boss);
-	for(;; YIELD) {
+	for(;;) {
 		boss->move = move_towards(100 + 300.0 * I, 0.02);
 		WAIT(100);
 		boss->move = move_towards(VIEWPORT_W/2 + 100.0 * I, 0.02);

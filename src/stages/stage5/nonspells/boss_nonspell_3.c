@@ -23,7 +23,6 @@ TASK(plainball_shoot, { BoxedBoss boss; }) {
 				.move = move_linear(cdir(0.1 * x)),
 			);
 		}
-		YIELD;
 	}
 }
 
@@ -66,6 +65,5 @@ DEFINE_EXTERN_TASK(stage5_boss_nonspell_3) {
 		WAIT(200);
 		boss->move.attraction_point = VIEWPORT_W-100 + 200.0 * I;
 		WAIT(200);
-		YIELD;
 	}
 }

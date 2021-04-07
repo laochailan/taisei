@@ -27,7 +27,6 @@ TASK(cloud_shoot, NO_ARGS) {
 				.move = move_linear(2 * I),
 			);
 		}
-		YIELD;
 	}
 }
 
