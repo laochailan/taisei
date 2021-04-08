@@ -10,7 +10,7 @@
 
 #include "spells.h"
 
-static Enemy* iku_overload_find_next_slave(cmplx from, double playerbias) {
+static Enemy* overload_find_next_node(cmplx from, double playerbias) {
 	Enemy *nearest = NULL, *e;
 	double dist, mindist = INFINITY;
 
@@ -32,11 +32,13 @@ static Enemy* iku_overload_find_next_slave(cmplx from, double playerbias) {
 	return nearest;
 }
 
-static void iku_overload_slave_visual(Enemy *e, int t, bool render) {
+static void overload_node_visual(Enemy *e, int t, bool render) {
 	if(render) {
 		return;
 	}
 
+	// TODO: removing e->args[2] here lets you see where the "nodes" are traveling to
+	//if(e->args[2] && !(t % 5)) {
 	if(!(t % 5)) {
 		RNG_ARRAY(rand, 2);
 		cmplx offset = vrng_sreal(rand[0]) * 15.0 + vrng_sreal(rand[1]) * 10.0 * I;
@@ -52,7 +54,7 @@ static void iku_overload_slave_visual(Enemy *e, int t, bool render) {
 	}
 }
 
-TASK(iku_overload_trigger_bullet, { Enemy *e; ProjPrototype *proto; cmplx pos; cmplx vel; }) {
+TASK(overload_trigger_bullet, { Enemy *e; ProjPrototype *proto; cmplx pos; cmplx vel; }) {
 	Enemy *target = ARGS.e;
 	Projectile *p = TASK_BIND(PROJECTILE(
 		.proto = ARGS.proto,
@@ -60,7 +62,6 @@ TASK(iku_overload_trigger_bullet, { Enemy *e; ProjPrototype *proto; cmplx pos; c
 		.color = RGBA(0.2, 0.2, 1.0, 0.0),
 		.flags = PFLAG_NOCLEAR,
 	));
-
 	p->move = move_linear(2 * cnormalize(target->pos - ARGS.pos));
 
 	for(int t = 0;;t++, YIELD) {
@@ -72,12 +73,7 @@ TASK(iku_overload_trigger_bullet, { Enemy *e; ProjPrototype *proto; cmplx pos; c
 			target->args[3] = global.frames + p->args[2];
 
 			play_sfx("shot_special1");
-		} else {
-			p->args[2] = approach(creal(p->args[2]), 0, 1);
-			play_sfx_loop("charge_generic");
-		}
 
-		if(creal(p->args[2]) == 0) {
 			int count = difficulty_value(8, 10, 12, 14);
 			for(int i = 0; i < count; ++i) {
 				cmplx dir = cdir(t + i * M_TAU/count);
@@ -98,8 +94,9 @@ TASK(iku_overload_trigger_bullet, { Enemy *e; ProjPrototype *proto; cmplx pos; c
 			stage_shake_view(40);
 			aniplayer_hard_switch(&global.boss->ani, "main_mirror", 0);
 			play_sfx("boom");
+
 			p->type = PROJ_DEAD;
-//			break;
+			break;
 		}
 
 		p->angle = global.frames + t;
@@ -112,12 +109,13 @@ TASK(iku_overload_trigger_bullet, { Enemy *e; ProjPrototype *proto; cmplx pos; c
 			.timeout = 20,
 			.draw_rule = pdraw_timeout_scalefade(0, 2.4, 2, 0),
 		);
+		play_sfx_loop("charge_generic");
 	}
 }
 
-TASK(iku_overload_fire_trigger_bullet, { BoxedBoss boss; }) {
+TASK(overload_fire_trigger_bullet, { BoxedBoss boss; }) {
 	Boss *boss = TASK_BIND(ARGS.boss);
-	Enemy *e = iku_overload_find_next_slave(boss->pos, 250);
+	Enemy *e = overload_find_next_node(boss->pos, 250);
 
 	if(!e) {
 		return;
@@ -126,7 +124,7 @@ TASK(iku_overload_fire_trigger_bullet, { BoxedBoss boss; }) {
 	aniplayer_hard_switch(&boss->ani, "dashdown_left", 1);
 	aniplayer_queue(&boss->ani, "main", 0);
 
-	INVOKE_TASK(iku_overload_trigger_bullet, {
+	INVOKE_TASK(overload_trigger_bullet, {
 		.e = e,
 		.pos = boss->pos,
 		.proto = pp_soul,
@@ -138,10 +136,6 @@ TASK(iku_overload_fire_trigger_bullet, { BoxedBoss boss; }) {
 	play_sfx("shot2");
 }
 
-// 0 = (NOT USED ANYMORE)
-// 1 = colour (iku_slave_visual) - used to determine if a laser is impacting it so it turns from teal to orange
-// 2 = laserline pos
-// 3 = determines if "first frame"
 TASK(overload, { BoxedBoss boss; BoxedEnemy e; cmplx epos; }) {
 	Enemy *e = TASK_BIND(ARGS.e);
 
@@ -155,7 +149,7 @@ TASK(overload, { BoxedBoss boss; BoxedEnemy e; cmplx epos; }) {
 			if(global.frames == creal(e->args[3])) {
 				cmplx o2 = e->args[2];
 				e->args[2] = 0;
-				Enemy *new = iku_overload_find_next_slave(ARGS.epos, 75);
+				Enemy *new = overload_find_next_node(ARGS.epos, 75);
 				e->args[2] = o2;
 
 				if(new && e != new) {
@@ -164,6 +158,8 @@ TASK(overload, { BoxedBoss boss; BoxedEnemy e; cmplx epos; }) {
 					new->args[1] = 1;
 					new->args[3] = global.frames + difficulty_value(55, 50, 45, 40);
 
+					// TODO: the lasers seemingly "work" insofar as the nodes turn orange when you'd expect
+					// but there's no laser effect
 					Laser *l = create_laserline_ab(e->pos, new->pos, 10, 30, e->args[2], RGBA(0.3, 1, 1, 0));
 					l->ent.draw_layer = LAYER_LASER_LOW;
 					l->unclearable = true;
@@ -216,7 +212,7 @@ TASK(overload, { BoxedBoss boss; BoxedEnemy e; cmplx epos; }) {
 						l->deathtime = global.frames - l->birthtime + 20;
 					}
 					play_sfx("boom");
-					INVOKE_SUBTASK(iku_overload_fire_trigger_bullet, ARGS.boss);
+					INVOKE_SUBTASK(overload_fire_trigger_bullet, ARGS.boss);
 				}
 			}
 		}
@@ -232,16 +228,17 @@ DEFINE_EXTERN_TASK(stage5_spell_overload) {
 	boss->move = move_towards(VIEWPORT_W/2 + 50.0 * I, 0.02);
 	BEGIN_BOSS_ATTACK(&ARGS);
 
-	int count = 5;
+	real count = 5;
 	real step = VIEWPORT_W / count;
 	for(int i = 0; i < count; i++) {
 		for(int j = 0; j < count; j++) {
 			cmplx epos = step * (0.5 + i) + (step * j + 125) * I;
-			Enemy *e = create_enemy_p(&global.enemies, boss->pos, ENEMY_IMMUNE, iku_overload_slave_visual, NULL, 0, 0, 0, 1);
+			Enemy *e = create_enemy_p(&global.enemies, boss->pos, ENEMY_IMMUNE, overload_node_visual, NULL, 0, 0, 0, 1);
 			e->move = move_towards(epos, 0.05);
 			INVOKE_TASK(overload, ENT_BOX(boss), ENT_BOX(e), epos);
 		}
 	}
-	INVOKE_TASK(iku_overload_fire_trigger_bullet, ARGS.boss);
+	WAIT(10);
+	INVOKE_TASK(overload_fire_trigger_bullet, ARGS.boss);
 }
 
