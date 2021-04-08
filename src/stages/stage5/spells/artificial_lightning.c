@@ -32,7 +32,7 @@ TASK(lightningball_particle, { BoxedBoss boss; }) {
 TASK(zigzag_move, { BoxedProjectile p; cmplx move_arg; }) {
 	Projectile *p = TASK_BIND(ARGS.p);
 
-	for(int time = 0;; time += WAIT(1)) {
+	for(int time = 0;; time++, YIELD) {
 		p->pos = p->pos0 + (abs(((2 * time) % 50) - 50 / 2) * I + time) * 2 * ARGS.move_arg;
 
 		if(time % 2 == 0) {
@@ -49,7 +49,7 @@ TASK(zigzag_move, { BoxedProjectile p; cmplx move_arg; }) {
 
 TASK(zigzag_shoot, { BoxedBoss boss; } ) {
 	Boss *boss = TASK_BIND(ARGS.boss);
-	for(int time = 0;; time += WAIT(1)) {
+	for(int time = 0;; time++, YIELD) {
 		if(time > 0 && !(time % 100)) {
 			int count = difficulty_value(7, 7, 7, 9);
 			for(int i = 0; i < count; i++) {
@@ -70,7 +70,7 @@ TASK(lightning_slave_move, { BoxedEnemy e; cmplx move_arg; }) {
 	Enemy *e = TASK_BIND(ARGS.e);
 	cmplx move = ARGS.move_arg;
 
-	for(int time = 0;; time += WAIT(1)) {
+	for(int time = 0;; time++, YIELD) {
 		e->move = move_linear(move);
 		if(time%20 == 0) {
 			move *= cdir(0.25 + 0.25 * rng_real() * M_PI);
@@ -108,7 +108,7 @@ TASK(lightning_slave, { cmplx pos; cmplx move_arg; }) {
 
 TASK(lightning_slaves, { BoxedBoss boss; } ) {
 	Boss *boss = TASK_BIND(ARGS.boss);
-	for(int time = 0;; time += WAIT(1)) {
+	for(int time = 0;; time++, YIELD) {
 		aniplayer_hard_switch(&boss->ani, ((time/141)&1) ? "dashdown_left" : "dashdown_right",1);
 		aniplayer_queue(&boss->ani, "main", 0);
 

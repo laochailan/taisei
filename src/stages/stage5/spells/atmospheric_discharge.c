@@ -45,7 +45,6 @@ TASK(ball_shoot, NO_ARGS) {
 				.color = RGBA(1 - 1 / (1 + fabs(0.1 * i)), 0.5 - 0.1 * abs(i), 1, 0),
 				.move = move_accelerated(0, (0.004 + 0.001 * difficulty) * cnormalize(p2 - p1) * cdir(M_PI/2 + 0.2 * i)),
 			);
-			YIELD;
 		}
 		play_sfx("shot_special1");
 		play_sfx("redirect");

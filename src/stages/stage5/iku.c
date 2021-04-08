@@ -50,7 +50,7 @@ TASK(iku_slave_visual, { BoxedIkuSlave slave; }) {
 			.sprite_ptr = slave->sprites.cloud,
 			.pos = slave->pos,
 			.color = &slave->color,
-			.draw_rule = pdraw_timeout_fade(2, 0.01),
+			.draw_rule = pdraw_timeout_fade(2, 0),
 			.timeout = 50,
 			.move = move_linear(offset * 0.2),
 			.flags = PFLAG_REQUIREDPARTICLE,
@@ -64,11 +64,11 @@ void stage5_init_iku_slave(IkuSlave *slave, cmplx pos) {
 	slave->ent.draw_layer = LAYER_BOSS - 1;
 	slave->ent.draw_func = iku_slave_draw;
 	slave->scale = (1 + I);
-	slave->color = *RGBA_MUL_ALPHA(0.1, 0.1, 0.6, 0.5);
+	slave->color = *RGBA_MUL_ALPHA(0.1, 0.1, 0.6, 0.2);
 	slave->sprites.lightning0 = res_sprite("part/lightning0");
 	slave->sprites.lightning1 = res_sprite("part/lightning1");
 	slave->sprites.cloud = res_sprite("part/lightningball");
-	slave->sprites.dot = res_sprite("dot");
+	slave->sprites.dot = res_sprite("part/smoothdot");
 
 	INVOKE_TASK(iku_slave_visual, ENT_BOX(slave));
 }
@@ -119,7 +119,7 @@ DEFINE_EXTERN_TASK(iku_induction_bullet) {
 	cmplx m1 = ARGS.m1;
 	cmplx m2 = ARGS.m2;
 
-	for(int time = 0;; time += WAIT(1)) {
+	for(int time = 0;; time++, YIELD) {
 		int t = time * sqrt(global.diff);
 		if(global.diff > D_Normal && ARGS.mode) {
 			t = time*0.6;

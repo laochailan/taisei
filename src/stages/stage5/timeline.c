@@ -59,7 +59,7 @@ TASK(magnetto_swirl_move, {
 	Enemy *e = TASK_BIND(ARGS.e);
 
 	cmplx swoop = 2.75 * cdir(M_PI/2);
-	for(int t = 0; t <= 140; t += WAIT(1)) {
+	for(int t = 0; t <= 140; t++, YIELD) {
 		if(!(t % 5)) {
 			cmplx offset = rng_dir();
 			iku_lightning_particle(e->pos + 15 * rng_real() * offset);

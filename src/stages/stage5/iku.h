@@ -24,8 +24,11 @@ DEFINE_ENTITY_TYPE(IkuSlave, {
 	cmplxf scale;
 
 	COEVENTS_ARRAY(
-		despawned
+		despawned,
+		killed,
+		collission
 	) events;
+
 });
 
 DECLARE_EXTERN_TASK(iku_slave_move, {

@@ -26,11 +26,10 @@ TASK(camera_down, { Stage5DrawData *draw_data; }) {
 TASK(animate_bg, { Stage5DrawData *draw_data; }) {
 	Stage5DrawData *draw_data = ARGS.draw_data;
 	float w = 0.005;
-	YIELD;
 
 	INVOKE_SUBTASK_DELAYED(6350, camera_down, draw_data);
 
-	for(int t = 0;; t += WAIT(1)) {
+	for(int t = 0;; t++, YIELD) {
 		stage3d_update(&stage_3d_context);
 
 		// rotates stairs around camera
