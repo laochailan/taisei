@@ -67,6 +67,7 @@ typedef struct Dialog {
 	struct {
 		const char *name;
 		const char *text;
+		Color color;
 		bool active;
 		int timeout;
 		struct {

@@ -257,6 +257,66 @@ static void dialog_actor_update_composite(DialogActor *a) {
 	a->composite_dirty = false;
 }
 
+void dialog_show_title(Dialog *dialog, DialogActor *actor, char *name, char *title) {
+	dialog->title.name = name;
+	dialog->title.text = title;
+	dialog->title.color = actor->speech_color;
+	dialog->title.active = true;
+	dialog->title.timeout = 720;
+
+	log_debug("[title] %s - %s (timeout: %i)", name, title, dialog->title.timeout);
+}
+
+static void dialog_title_draw(Dialog *dialog) {
+	if (dialog == NULL) {
+		return;
+	}
+
+	FloatRect title_bg_rect = {
+		.extent = { VIEWPORT_W / 3, VIEWPORT_H / 8 },
+		.offset = { VIEWPORT_W / 2 + 100, VIEWPORT_H / 2 + 100 },
+	};
+
+	r_mat_mv_push();
+	if(dialog->title.box.opacity < 1) {
+		r_mat_mv_translate(0, 100 * (1 - dialog->title.box.opacity), 0);
+	}
+	r_color4(0, 0, 0, 0.8 * dialog->title.box.opacity);
+	r_mat_mv_translate(title_bg_rect.x, title_bg_rect.y, 0);
+	r_mat_mv_scale(title_bg_rect.w, title_bg_rect.h, 1);
+	r_shader_standard_notex();
+	r_draw_quad();
+	r_mat_mv_pop();
+
+	title_bg_rect.x -= title_bg_rect.w * 0.5;
+	title_bg_rect.y -= title_bg_rect.h * 0.5;
+
+	Color clr = dialog->title.color;
+	color_mul_scalar(&clr, dialog->title.box_text.opacity);
+
+	text_draw_wrapped(dialog->title.name, title_bg_rect.w, &(TextParams) {
+		.shader = "text_default",
+		.shader_params = &(ShaderCustomParams) {{ dialog->opacity * dialog->text.current->opacity, 0 }},
+		.aux_textures = { res_texture("cell_noise") },
+		.color = &clr,
+		.pos = { title_bg_rect.x + title_bg_rect.w * 0.5, title_bg_rect.y + title_bg_rect.h * 0.3 },
+		.align = ALIGN_CENTER,
+		.font_ptr = res_font("standard"),
+		.overlay_projection = &title_bg_rect,
+	});
+
+	text_draw_wrapped(dialog->title.text, title_bg_rect.w, &(TextParams) {
+		.shader = "text_default",
+		.shader_params = &(ShaderCustomParams) {{ dialog->opacity * dialog->text.current->opacity, 0 }},
+		.aux_textures = { res_texture("cell_noise") },
+		.color = &clr,
+		.pos = { title_bg_rect.x + title_bg_rect.w * 0.5, title_bg_rect.y + title_bg_rect.h * 0.60 },
+		.align = ALIGN_CENTER,
+		.font_ptr = res_font("small"),
+		.overlay_projection = &title_bg_rect,
+	});
+}
+
 void dialog_draw(Dialog *dialog) {
 	if(dialog == NULL) {
 		return;
@@ -389,42 +449,8 @@ void dialog_draw(Dialog *dialog) {
 	}
 
 	if(dialog->title.active) {
-		FloatRect title_bg_rect = {
-			.extent = { VIEWPORT_W-300, 60 },
-			.offset = { VIEWPORT_W-125, VIEWPORT_H-170 },
-		};
-
-		r_mat_mv_push();
-		if(dialog->title.box.opacity < 1) {
-			r_mat_mv_translate(0, 100 * (1 - dialog->title.box.opacity), 0);
-		}
-		r_color4(0, 0, 0, 0.8 * dialog->title.box.opacity);
-		r_mat_mv_translate(title_bg_rect.x, title_bg_rect.y, 0);
-		r_mat_mv_scale(title_bg_rect.w, title_bg_rect.h, 1);
-		r_shader_standard_notex();
-		r_draw_quad();
-		r_mat_mv_pop();
-
-		title_bg_rect.w = VIEWPORT_W * 0.96;
-		title_bg_rect.x -= title_bg_rect.w * 0.6;
-		title_bg_rect.y -= title_bg_rect.h * 0.6;
-
-		clr = dialog->text.current->color;
-		color_mul_scalar(&clr, dialog->title.box_text.opacity);
-
-		text_draw(dialog->title.name, &(TextParams) {
-			.shader = "text_default",
-			.color = &clr,
-			.pos = {
-				title_bg_rect.y-10,
-				title_bg_rect.x+300
-			},
-			.align = ALIGN_CENTER,
-			.font_ptr = font,
-		});
-
+		dialog_title_draw(dialog);
 	}
-
 
 	r_mat_tex_pop();
 	r_mat_mv_pop();
@@ -447,13 +473,4 @@ bool dialog_is_active(Dialog *d) {
 
 void dialog_preload(void) {
 	preload_resource(RES_SHADER_PROGRAM, "text_dialog", RESF_DEFAULT);
-}
-
-void dialog_show_title(Dialog *dialog, DialogActor *actor, char *name, char *title) {
-	dialog->title.name = name;
-	dialog->title.text = title;
-	dialog->title.active = true;
-	dialog->title.timeout = 360;
-
-	log_debug("%s - %s", name, title);
 }
