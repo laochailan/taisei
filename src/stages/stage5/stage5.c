@@ -59,8 +59,7 @@ struct stage5_spells_s stage5_spells = {
 
 	.extra.overload = {
 		{ 0,  1,  2,  3}, AT_ExtraSpell, "Circuit Sign “Overload”", 60, 44000,
-		NULL, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5,
-		TASK_INDIRECT_INIT(BossAttack, stage5_spell_overload)
+		iku_overload, iku_spell_bg, BOSS_DEFAULT_GO_POS, 5
 	},
 };
 

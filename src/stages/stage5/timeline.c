@@ -300,8 +300,7 @@ TASK(lightburst_fairy_1, {
 
 	real count = difficulty_value(6, 7, 8, 9);
 	int difficulty = difficulty_value(1, 2, 3, 4);
-	WAIT(70);
-	for(int x = 0; x < 150; x++) {
+	for(int x = WAIT(20); x < 300; x += WAIT(5)) {
 		play_sfx("shot1_loop");
 		for(int i = 0; i < count; i++) {
 			cmplx n = cnormalize(global.plr.pos - e->pos) * cdir(i * M_TAU / count);
@@ -314,7 +313,40 @@ TASK(lightburst_fairy_1, {
 			play_sfx("shot1_loop");
 		}
 		play_sfx("shot2");
-		WAIT(5);
+	}
+}
+
+TASK(lightburst_fairies_1, {
+	int num;
+	cmplx pos;
+	cmplx offset;
+	cmplx exit;
+}) {
+	for(int i = 0; i < ARGS.num; i++) {
+		cmplx pos = ARGS.pos + ARGS.offset * i;
+		INVOKE_TASK(lightburst_fairy_1,
+			.pos = pos,
+			.move_enter = move_towards(pos + ARGS.exit * 70 , 0.05),
+			.move_exit = move_linear(ARGS.exit)
+		);
+		WAIT(40);
+	}
+}
+
+TASK(lightburst_fairies_2, {
+	int num;
+	cmplx pos;
+	cmplx offset;
+	cmplx exit;
+}) {
+	for(int i = 0; i < ARGS.num; i++) {
+		cmplx pos = ARGS.pos + ARGS.offset * i;
+		INVOKE_TASK(lightburst_fairy_2,
+			.pos = pos,
+			.move_enter = move_towards(pos + ARGS.exit * 70 , 0.05),
+			.move_exit = move_linear(ARGS.exit)
+		);
+		WAIT(40);
 	}
 }
 
@@ -352,40 +384,6 @@ TASK(laser_fairy, {
 
 	WAIT(30);
 	e->move = ARGS.move_exit;
-}
-
-TASK(lightburst_fairies_1, {
-	int num;
-	cmplx pos;
-	cmplx offset;
-	cmplx exit;
-}) {
-	for(int i = 0; i < ARGS.num; i++) {
-		cmplx pos = ARGS.pos + ARGS.offset * i;
-		INVOKE_TASK(lightburst_fairy_1,
-			.pos = pos,
-			.move_enter = move_towards(pos + ARGS.exit * 70 , 0.05),
-			.move_exit = move_linear(ARGS.exit)
-		);
-		WAIT(40);
-	}
-}
-
-TASK(lightburst_fairies_2, {
-	int num;
-	cmplx pos;
-	cmplx offset;
-	cmplx exit;
-}) {
-	for(int i = 0; i < ARGS.num; i++) {
-		cmplx pos = ARGS.pos + ARGS.offset * i;
-		INVOKE_TASK(lightburst_fairy_2,
-			.pos = pos,
-			.move_enter = move_towards(pos + ARGS.exit * 70 , 0.05),
-			.move_exit = move_linear(ARGS.exit)
-		);
-		WAIT(40);
-	}
 }
 
 TASK(loop_swirl, {
@@ -835,8 +833,8 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.exit = -2 * I + 2,
 	});
 
-	// 5600
-	INVOKE_TASK_DELAYED(2600, magnetto_swirls, {
+	// 5620
+	INVOKE_TASK_DELAYED(2620, magnetto_swirls, {
 		.num = 5,
 	});
 

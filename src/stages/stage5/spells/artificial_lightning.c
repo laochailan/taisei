@@ -6,6 +6,7 @@
  * Copyright (c) 2012-2019, Andrei Alexeyev <akari@taisei-project.org>.
 */
 
+#include "move.h"
 #include "projectile.h"
 #include "taisei.h"
 
@@ -13,7 +14,7 @@
 
 TASK(lightningball_particle, { BoxedBoss boss; }) {
 	Boss *boss = TASK_BIND(ARGS.boss);
-	for(int x = 0;; x += WAIT(1)) {
+	for(int x = 0;; x++, YIELD) {
 		cmplx n = cdir(M_TAU * rng_real());
 		float l = 150 * rng_real() + 50;
 		float s = 4 + x * 0.01;
@@ -33,6 +34,7 @@ TASK(zigzag_move, { BoxedProjectile p; cmplx move_arg; }) {
 	Projectile *p = TASK_BIND(ARGS.p);
 
 	for(int time = 0;; time++, YIELD) {
+		// TODO: make this better
 		p->pos = p->pos0 + (abs(((2 * time) % 50) - 50 / 2) * I + time) * 2 * ARGS.move_arg;
 
 		if(time % 2 == 0) {
@@ -92,6 +94,7 @@ TASK(lightning_slave, { cmplx pos; cmplx move_arg; }) {
 				.proto = pp_wave,
 				.pos = e->pos,
 				.color = clr,
+				// TODO: this doesn't quite work right
 				.move = move_asymptotic_simple(0.75 * ARGS.move_arg / cabs(ARGS.move_arg) * I, 10),
 			);
 

@@ -15,16 +15,13 @@
 
 #include "stages/stage5/iku.h"
 
-void iku_lightning(Boss *, int);
-void iku_induction(Boss *, int);
-void iku_cathode(Boss *, int);
-void iku_overload(Boss *, int);
-
 DECLARE_EXTERN_TASK_WITH_INTERFACE(stage5_midboss_static_bomb, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(stage5_spell_atmospheric_discharge, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(stage5_spell_artificial_lightning, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(stage5_spell_induction, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(stage5_spell_natural_cathode, BossAttack);
-DECLARE_EXTERN_TASK_WITH_INTERFACE(stage5_spell_overload, BossAttack);
+
+// TODO: remove this once Overload is modernized
+void iku_overload(Boss *, int);
 
 #endif // IGUARD_stages_stage5_spells_spells_h
