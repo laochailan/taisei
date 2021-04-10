@@ -89,7 +89,7 @@ DEFINE_EXTERN_TASK(iku_slave_move) {
 	}
 }
 
-void iku_nonspell_spawn_cloud(void) {
+static void iku_nonspell_spawn_cloud(void) {
 	RNG_ARRAY(rand, 4);
 	float v = (vrng_sreal(rand[2]) + vrng_sreal(rand[3])) * 0.5 + 1.0;
 

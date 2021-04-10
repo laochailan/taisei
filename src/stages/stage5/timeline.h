@@ -13,9 +13,6 @@
 
 #include "boss.h"
 
-void stage5_events(void);
-Boss* stage5_spawn_iku(cmplx);
-
 DECLARE_EXTERN_TASK(stage5_timeline, NO_ARGS);
 
 #endif // IGUARD_stages_stage5_timeline_h

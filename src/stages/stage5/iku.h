@@ -46,9 +46,7 @@ DECLARE_EXTERN_TASK(iku_induction_bullet, {
 DECLARE_EXTERN_TASK(iku_spawn_clouds, NO_ARGS);
 
 void stage5_init_iku_slave(IkuSlave *slave, cmplx pos);
-void iku_nonspell_spawn_cloud(void);
 void iku_lightning_particle(cmplx);
-int iku_induction_bullet(Projectile *p, int time);
 
 Boss *stage5_spawn_iku(cmplx pos);
 IkuSlave *stage5_midboss_slave(cmplx pos);
