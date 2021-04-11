@@ -69,6 +69,8 @@ static void stage4_start(void) {
 	stage4_drawsys_init();
 	stage4_bg_init_fullstage();
 	stage_start_bgm("stage4");
+	stage_set_voltage_thresholds(170, 340, 660, 1040);
+	INVOKE_TASK(stage4_timeline);
 }
 
 static void stage4_spellpractice_start(void) {
@@ -144,7 +146,6 @@ StageProcs stage4_procs = {
 	.preload = stage4_preload,
 	.end = stage4_end,
 	.draw = stage4_draw,
-	.event = stage4_events,
 	.shader_rules = stage4_bg_effects,
 	.spellpractice_procs = &stage4_spell_procs,
 };

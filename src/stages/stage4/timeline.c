@@ -22,8 +22,6 @@
 #include "common_tasks.h"
 #include "../stage6/elly.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
-
 TASK(boss_appear_stub, NO_ARGS) {
 	log_warn("FIXME");
 }
@@ -39,39 +37,6 @@ static void stage4_dialog_pre_boss(void) {
 static void stage4_dialog_post_boss(void) {
 	PlayerMode *pm = global.plr.mode;
 	INVOKE_TASK_INDIRECT(Stage4PostBossDialog, pm->dialog->Stage4PostBoss);
-}
-
-static int stage4_splasher(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 3, ITEM_POWER, 1, ITEM_BOMB, 1);
-		return 1;
-	}
-
-	e->moving = true;
-	e->dir = creal(e->args[0]) < 0;
-
-	FROM_TO(0, 50, 1)
-		e->pos += e->args[0]*(1-t/50.0);
-
-	FROM_TO_SND("shot1_loop", 66-6*global.diff, 150, 5-global.diff) {
-		tsrand_fill(4);
-		PROJECTILE(
-			.proto = afrand(0) > 0.5 ? pp_rice : pp_thickrice,
-			.pos = e->pos,
-			.color = RGB(0.8,0.3-0.1*afrand(1),0.5),
-			.rule = accelerated,
-			.args = {
-				e->args[0]/2+(1-2*afrand(2))+(1-2*afrand(3))*I,
-				0.02*I
-			}
-		);
-	}
-
-	FROM_TO(200, 300, 1)
-		e->pos -= creal(e->args[0])*(t-200)/100.0;
-
-	return 1;
 }
 
 static int stage4_fodder(Enemy *e, int t) {
@@ -530,116 +495,139 @@ static int scythe_post_mid(Enemy *e, int t) {
 	return 1;
 }
 
-void stage4_events(void) {
-	TIMER(&global.timer);
+TASK(splasher_fairy, { cmplx pos; int direction; }) {
+	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 3, .power = 1, .bomb = 1) ));
 
-	AT(0) {
-		stage_start_bgm("stage4");
-		stage_set_voltage_thresholds(170, 340, 660, 1040);
+	cmplx move = 3 * ARGS.direction - 4.0 * I;
+	e->move = move_linear(move);
+	WAIT(25);
+	e->move.velocity = 0; // stop
+
+	WAIT(50);
+	for(int time = 0; time < 150; time += WAIT(5)) {
+		// "shower" effect
+		RNG_ARRAY(rand, 3);
+		PROJECTILE(
+			.proto = rng_chance(0.5) ? pp_rice : pp_thickrice,
+			.pos = e->pos,
+			.color = RGB(0.8, 0.3 - 0.1 * vrng_real(rand[0]), 0.5),
+            .move = move_accelerated(move / 2 + (1 - 2 * vrng_real(rand[1])) + (1 - 2 * vrng_real(rand[2])) * I, 0.02 * I),
+		);
+		play_sfx("shot1_loop");
 	}
 
-	AT(70) {
-		create_enemy1c(VIEWPORT_H/4*3*I, 3000, BigFairy, stage4_splasher, 3-4.0*I);
-		create_enemy1c(VIEWPORT_W + VIEWPORT_H/4*3*I, 3000, BigFairy, stage4_splasher, -3-4.0*I);
-	}
-
-	FROM_TO(300, 450, 10) {
-		float span = VIEWPORT_W * 0.5;
-		float phase = 2*_i/M_PI;
-
-		if(_i & 1) {
-			phase *= -1;
-		}
-
-		create_enemy1c((VIEWPORT_W + span * sin(phase)) * 0.5 - 32*I, 200, Fairy, stage4_fodder, 2.0*I*cexp(I*phase*0.1));
-	}
-
-	FROM_TO(500, 550, 10) {
-		int d = _i&1;
-		create_enemy1c(VIEWPORT_W*d, 1000, Fairy, stage4_partcircle, 2*cexp(I*M_PI/2.0*(0.2+0.6*frand()+d)));
-	}
-
-	FROM_TO(600, 1400, 100) {
-		create_enemy3c(VIEWPORT_W/4.0 + VIEWPORT_W/2.0*(_i&1), 3000, BigFairy, stage4_cardbuster, VIEWPORT_W/6.0 + VIEWPORT_W/3.0*2*(_i&1)+100.0*I,
-					VIEWPORT_W/4.0 + VIEWPORT_W/2.0*((_i+1)&1)+300.0*I, VIEWPORT_W/2.0+VIEWPORT_H*I+200.0*I);
-	}
-
-	AT(1800) {
-		create_enemy1c(VIEWPORT_H/2.0*I, 2000, Swirl, stage4_backfire, 0.3);
-		create_enemy1c(VIEWPORT_W+VIEWPORT_H/2.0*I, 2000, Swirl, stage4_backfire, -0.5);
-	}
-
-	FROM_TO(2060, 2600, 15) {
-		float span = 300;
-		float phase = 2*_i/M_PI;
-
-		if(_i & 1) {
-			phase *= -1;
-		}
-
-		create_enemy1c(I * span * psin(phase) - 24, 200, Fairy, stage4_fodder, 2.0*cexp(I*phase*0.005));
-	}
-
-	FROM_TO(2000, 2400, 200)
-		create_enemy1c(VIEWPORT_W/2+200-400*frand(), 1000, BigFairy, stage4_bigcircle, 2.0*I);
-
-	FROM_TO(2600, 3000, 10)
-		create_enemy1c(20.0*I+VIEWPORT_H/3*I*frand()+VIEWPORT_W, 100, Swirl, stage4_explosive, -3);
-
-	AT(3200)
-		global.boss = create_kurumi_mid();
-
-	int midboss_time = STAGE4_MIDBOSS_MUSIC_TIME;
-
-	AT(3201) {
-		if(global.boss) {
-			global.timer += fmin(midboss_time, global.frames - global.boss->birthtime) - 1;
-		}
-	}
-
-	FROM_TO(3201, 3201 + midboss_time - 1, 1) {
-		if(!global.enemies.first) {
-			create_enemy4c(VIEWPORT_W/2+160.0*I, ENEMY_IMMUNE, scythe_draw, scythe_post_mid, 0, 1+0.2*I, 0+1*I, 3201 + midboss_time - global.timer);
-		}
-	}
-
-	FROM_TO(3201 + midboss_time, 3501 + midboss_time, 10) {
-		float span = 120;
-		float phase = 2*_i/M_PI;
-		create_enemy1c(VIEWPORT_W*(_i&1)+span*I*psin(phase), 200, Fairy, stage4_fodder, 2-4*(_i&1)+1.0*I);
-	}
-
-	FROM_TO(3350 + midboss_time, 4000 + midboss_time, 60) {
-		int d = _i&1;
-		create_enemy1c(VIEWPORT_W*d, 1000, Fairy, stage4_partcircle, 2*cexp(I*M_PI/2.0*(0.2+0.6*frand()+d)));
-	}
-
-	FROM_TO(3550 + midboss_time, 4200 + midboss_time, 200) {
-		create_enemy3c(VIEWPORT_W/4.0 + VIEWPORT_W/2.0*(_i&1), 3000, BigFairy, stage4_cardbuster, VIEWPORT_W/2.+VIEWPORT_W*0.4*(1-2*(_i&1))+100.0*I,
-					VIEWPORT_W/4.0+VIEWPORT_W/2.0*((_i+1)&1)+300.0*I, VIEWPORT_W/2.0-200.0*I);
-	}
-
-	AT(3800 + midboss_time)
-		create_enemy1c(VIEWPORT_W/2, 9000, BigFairy, stage4_supercard, 4.0*I);
-
-	FROM_TO(4300 + midboss_time, 4600 + midboss_time, 95-10*global.diff)
-		create_enemy1c(VIEWPORT_W*(_i&1)+100*I, 200, Swirl, stage4_backfire, frand()*(1-2*(_i&1)));
-
-	FROM_TO(4800 + midboss_time, 5200 + midboss_time, 10)
-		create_enemy1c(20.0*I+I*VIEWPORT_H/3*frand()+VIEWPORT_W*(_i&1), 100, Swirl, stage4_explosive, (1-2*(_i&1))*3+I);
-
-	AT(5300 + midboss_time) {
-		stage_unlock_bgm("stage4");
-		stage4_bg_redden_corridor();
-		global.boss = create_kurumi();
-	}
-
-	AT(5400 + midboss_time) {
-		stage_unlock_bgm("stage4boss");
-		stage4_dialog_post_boss();
-	}
-
-	AT(5405 + midboss_time) {
-		stage_finish(GAMEOVER_SCORESCREEN);
-	}
+	WAIT(60);
+	e->move = move_linear(-ARGS.direction);
 }
+
+DEFINE_EXTERN_TASK(stage4_timeline) {
+	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H/4 * 3 * I, 1);
+	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_W + VIEWPORT_H/4 * 3 * I, -1);
+
+	WAIT(5000);
+	stage_finish(GAMEOVER_SCORESCREEN);
+}
+
+
+
+/* void stage4_events(void) { */
+
+/* 	FROM_TO(300, 450, 10) { */
+/* 		float span = VIEWPORT_W * 0.5; */
+/* 		float phase = 2*_i/M_PI; */
+
+/* 		if(_i & 1) { */
+/* 			phase *= -1; */
+/* 		} */
+
+/* 		create_enemy1c((VIEWPORT_W + span * sin(phase)) * 0.5 - 32*I, 200, Fairy, stage4_fodder, 2.0*I*cexp(I*phase*0.1)); */
+/* 	} */
+
+/* 	FROM_TO(500, 550, 10) { */
+/* 		int d = _i&1; */
+/* 		create_enemy1c(VIEWPORT_W*d, 1000, Fairy, stage4_partcircle, 2*cexp(I*M_PI/2.0*(0.2+0.6*frand()+d))); */
+/* 	} */
+
+/* 	FROM_TO(600, 1400, 100) { */
+/* 		create_enemy3c(VIEWPORT_W/4.0 + VIEWPORT_W/2.0*(_i&1), 3000, BigFairy, stage4_cardbuster, VIEWPORT_W/6.0 + VIEWPORT_W/3.0*2*(_i&1)+100.0*I, */
+/* 					VIEWPORT_W/4.0 + VIEWPORT_W/2.0*((_i+1)&1)+300.0*I, VIEWPORT_W/2.0+VIEWPORT_H*I+200.0*I); */
+/* 	} */
+
+/* 	AT(1800) { */
+/* 		create_enemy1c(VIEWPORT_H/2.0*I, 2000, Swirl, stage4_backfire, 0.3); */
+/* 		create_enemy1c(VIEWPORT_W+VIEWPORT_H/2.0*I, 2000, Swirl, stage4_backfire, -0.5); */
+/* 	} */
+
+/* 	FROM_TO(2060, 2600, 15) { */
+/* 		float span = 300; */
+/* 		float phase = 2*_i/M_PI; */
+
+/* 		if(_i & 1) { */
+/* 			phase *= -1; */
+/* 		} */
+
+/* 		create_enemy1c(I * span * psin(phase) - 24, 200, Fairy, stage4_fodder, 2.0*cexp(I*phase*0.005)); */
+/* 	} */
+
+/* 	FROM_TO(2000, 2400, 200) */
+
+/* 	FROM_TO(2600, 3000, 10) */
+/* 		create_enemy1c(20.0*I+VIEWPORT_H/3*I*frand()+VIEWPORT_W, 100, Swirl, stage4_explosive, -3); */
+
+/* 	AT(3200) */
+/* 		global.boss = create_kurumi_mid(); */
+
+/* 	int midboss_time = STAGE4_MIDBOSS_MUSIC_TIME; */
+
+/* 	AT(3201) { */
+/* 		if(global.boss) { */
+/* 			global.timer += fmin(midboss_time, global.frames - global.boss->birthtime) - 1; */
+/* 		} */
+/* 	} */
+
+/* 	FROM_TO(3201, 3201 + midboss_time - 1, 1) { */
+/* 		if(!global.enemies.first) { */
+/* 			create_enemy4c(VIEWPORT_W/2+160.0*I, ENEMY_IMMUNE, scythe_draw, scythe_post_mid, 0, 1+0.2*I, 0+1*I, 3201 + midboss_time - global.timer); */
+/* 		} */
+/* 	} */
+
+/* 	FROM_TO(3201 + midboss_time, 3501 + midboss_time, 10) { */
+/* 		float span = 120; */
+/* 		float phase = 2*_i/M_PI; */
+/* 		create_enemy1c(VIEWPORT_W*(_i&1)+span*I*psin(phase), 200, Fairy, stage4_fodder, 2-4*(_i&1)+1.0*I); */
+/* 	} */
+
+/* 	FROM_TO(3350 + midboss_time, 4000 + midboss_time, 60) { */
+/* 		int d = _i&1; */
+/* 		create_enemy1c(VIEWPORT_W*d, 1000, Fairy, stage4_partcircle, 2*cexp(I*M_PI/2.0*(0.2+0.6*frand()+d))); */
+/* 	} */
+
+/* 	FROM_TO(3550 + midboss_time, 4200 + midboss_time, 200) { */
+/* 		create_enemy3c(VIEWPORT_W/4.0 + VIEWPORT_W/2.0*(_i&1), 3000, BigFairy, stage4_cardbuster, VIEWPORT_W/2.+VIEWPORT_W*0.4*(1-2*(_i&1))+100.0*I, */
+/* 					VIEWPORT_W/4.0+VIEWPORT_W/2.0*((_i+1)&1)+300.0*I, VIEWPORT_W/2.0-200.0*I); */
+/* 	} */
+
+/* 	AT(3800 + midboss_time) */
+/* 		create_enemy1c(VIEWPORT_W/2, 9000, BigFairy, stage4_supercard, 4.0*I); */
+
+/* 	FROM_TO(4300 + midboss_time, 4600 + midboss_time, 95-10*global.diff) */
+/* 		create_enemy1c(VIEWPORT_W*(_i&1)+100*I, 200, Swirl, stage4_backfire, frand()*(1-2*(_i&1))); */
+
+/* 	FROM_TO(4800 + midboss_time, 5200 + midboss_time, 10) */
+/* 		create_enemy1c(20.0*I+I*VIEWPORT_H/3*frand()+VIEWPORT_W*(_i&1), 100, Swirl, stage4_explosive, (1-2*(_i&1))*3+I); */
+
+/* 	AT(5300 + midboss_time) { */
+/* 		stage_unlock_bgm("stage4"); */
+/* 		stage4_bg_redden_corridor(); */
+/* 		global.boss = create_kurumi(); */
+/* 	} */
+
+/* 	AT(5400 + midboss_time) { */
+/* 		stage_unlock_bgm("stage4boss"); */
+/* 		stage4_dialog_post_boss(); */
+/* 	} */
+
+/* 	AT(5405 + midboss_time) { */
+/* 		stage_finish(GAMEOVER_SCORESCREEN); */
+/* 	} */
+/* } */
