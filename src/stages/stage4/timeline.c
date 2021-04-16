@@ -18,10 +18,12 @@
 #include "global.h"
 #include "stage.h"
 #include "enemy.h"
+#include "enemy_classes.h"
 #include "laser.h"
 #include "common_tasks.h"
 #include "../stage6/elly.h"
 
+/*
 TASK(boss_appear_stub, NO_ARGS) {
 	log_warn("FIXME");
 }
@@ -494,9 +496,10 @@ static int scythe_post_mid(Enemy *e, int t) {
 	scythe_common(e, t);
 	return 1;
 }
+*/
 
 TASK(splasher_fairy, { cmplx pos; int direction; }) {
-	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 3, .power = 1, .bomb = 1) ));
+	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 3, .power = 1, .bomb = 1)));
 
 	cmplx move = 3 * ARGS.direction - 4.0 * I;
 	e->move = move_linear(move);
