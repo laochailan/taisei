@@ -1,0 +1,139 @@
+# escape=`
+
+########################################
+# vscode image: install MS build tools #
+########################################
+
+FROM mcr.microsoft.com/dotnet/framework/sdk:4.8-windowsservercore-ltsc2019 as vscode
+
+SHELL ["cmd", "/S", "/C"]
+
+# installs VS 2019 Community
+# may or may not be needed, keeping here for now
+# ADD https://aka.ms/vs/16/release/vs_Community.exe C:\TEMP\vs_Community.exe
+# RUN C:\TEMP\vs_Community.exe `
+# 	--installPath C:\VS `
+# 	--add Microsoft.VisualStudio.Workload.Python `
+# 	--includeRecommended --update --quiet --norestart --passive
+
+# CLI build tools for Visual Studio
+ADD https://aka.ms/vs/16/release/vs_buildtools.exe C:\TEMP\vs_buildtools.exe
+
+# installs the v19041 SDK which ANGLE needs
+RUN C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache `
+	--installPath C:\BuildTools `
+	--add Microsoft.VisualStudio.Component.Windows10SDK.19041 `
+	--add Microsoft.VisualStudio.Workload.Python `
+	--remove Microsoft.VisualStudio.Component.Windows10SDK.10240 `
+	--remove Microsoft.VisualStudio.Component.Windows10SDK.10586 `
+	--remove Microsoft.VisualStudio.Component.Windows10SDK.14393 `
+	--remove Microsoft.VisualStudio.Component.Windows81SDK `
+ || IF "%ERRORLEVEL%"=="3010" EXIT 0
+
+ENTRYPOINT ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+
+###########################################
+# depot_tools image: install google tools #
+###########################################
+
+FROM vscode AS depot_tools
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# aka 'cd C:\TEMP'
+WORKDIR C:\TEMP
+
+# 'easiest' way to get Python on Windows
+ENV PYTHON_VERSION 3.8.9
+ENV PYTHON_RELEASE 3.8.9
+RUN $url = ('https://www.python.org/ftp/python/{0}/python-{1}-amd64.exe' -f $env:PYTHON_RELEASE, $env:PYTHON_VERSION); `
+	Write-Host ('Downloading {0} ...' -f $url); `
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
+	Invoke-WebRequest -Uri $url -OutFile 'python.exe'; `
+	`
+	Write-Host 'Installing ...'; `
+	# https://docs.python.org/3/using/windows.html#installing-without-ui
+	$exitCode = (Start-Process python.exe -Wait -NoNewWindow -PassThru `
+		-ArgumentList @( `
+			'/quiet', `
+			'InstallAllUsers=1', `
+			'TargetDir=C:\Python', `
+			'PrependPath=1', `
+			'Shortcuts=0', `
+			'Include_doc=0', `
+			'Include_pip=0', `
+			'Include_test=0' `
+		) `
+	).ExitCode; `
+	if ($exitCode -ne 0) { `
+		Write-Host ('Running python installer failed with exit code: {0}' -f $exitCode); `
+		Get-ChildItem $env:TEMP | Sort-Object -Descending -Property LastWriteTime | Select-Object -First 1 | Get-Content; `
+		exit $exitCode; `
+	} `
+	`
+	# the installer updated PATH, so we should refresh our local value
+	$env:PATH = [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine); `
+	`
+	Write-Host 'Verifying install ...'; `
+	Write-Host '  python --version'; python --version; `
+	`
+	Write-Host 'Removing ...'; `
+	Remove-Item python.exe -Force; `
+	Remove-Item $env:TEMP/Python*.log -Force; `
+	`
+	Write-Host 'Complete.'
+
+# google's super-special build system for their build system
+ADD https://storage.googleapis.com/chrome-infra/depot_tools.zip C:\GOOGLE\depot_tools.zip
+RUN mkdir C:\GOOGLE\depot_tools
+RUN tar -xf C:\GOOGLE\depot_tools.zip -C C:\GOOGLE\depot_tools
+
+ENTRYPOINT ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+
+###################################
+# checkout image: check out ANGLE #
+###################################
+
+FROM depot_tools AS checkout
+
+# use PowerShell
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# from the Makefile, i.e: '4484'
+ARG ANGLE_VERSION
+ENV DEPOT_TOOLS_WIN_TOOLCHAIN=0
+
+# set PATH to include google's tools
+RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
+
+# download and extract
+ADD https://github.com/google/angle/archive/refs/heads/chromium/${ANGLE_VERSION}.zip C:\GOOGLE\angle.zip
+RUN tar -xf C:\GOOGLE\angle.zip -C C:\GOOGLE
+
+WORKDIR C:\GOOGLE\angle-chromium-${ANGLE_VERSION}
+
+# set up the build environment
+RUN python .\scripts\bootstrap.py
+RUN git checkout chromium/${ANGLE_VERSION}
+RUN gclient sync
+
+###############################
+# compiler image: build ANGLE #
+###############################
+
+FROM checkout AS angle_compiler
+
+# Makefile
+ARG ANGLE_VERSION
+
+# use PowerShell
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# re-set depot_tools PATH just in case
+RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
+
+WORKDIR C:\GOOGLE\angle-chromium-${ANGLE_VERSION}
+
+# compile ANGLE
+RUN gn gen out/Release
+RUN autoninja -C out/Release

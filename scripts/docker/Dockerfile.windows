@@ -1,4 +1,8 @@
-FROM ubuntu:focal as taisei_builder
+##############
+# base image #
+##############
+
+FROM mstorsjo/llvm-mingw:20201020 as taisei_builder
 
 ENV LANG C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
@@ -7,12 +11,18 @@ RUN apt update && apt install -y -qq build-essential libsdl2-dev libogg-dev libo
 
 RUN pip3 install meson==0.55.3 ninja zstandard
 
+##################
+# compiler image #
+##################
+
 FROM taisei_builder
 
-RUN mkdir -p /usr/src/taisei
+RUN mkdir -p /usr/src/taisei /opt/taisei-exe
 
 WORKDIR /usr/src/taisei
 
 COPY . .
 
-RUN make all
+ENV TAISEI_PREFIX=/opt/taisei-exe
+
+RUN make submodule-update all-windows

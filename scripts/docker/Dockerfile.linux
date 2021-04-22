@@ -9,10 +9,11 @@ RUN pip3 install meson==0.55.3 ninja zstandard
 
 FROM taisei_builder
 
-RUN mkdir -p /usr/src/taisei
-
 WORKDIR /usr/src/taisei
 
 COPY . .
 
 RUN make all
+
+RUN mkdir -p /usr/src/taisei
+
