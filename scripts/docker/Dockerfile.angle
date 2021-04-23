@@ -83,7 +83,12 @@ RUN $url = ('https://www.python.org/ftp/python/{0}/python-{1}-amd64.exe' -f $env
 	`
 	Write-Host 'Complete.'
 
-# google's super-special build system for their build system
+# install minimal git
+ADD https://github.com/git-for-windows/git/releases/download/v2.31.1.windows.1/MinGit-2.31.1-64-bit.zip C:\TEMP\MinGit.zip
+RUN mkdir C:\MinGit
+RUN tar -xf C:\TEMP\MinGit.zip -C C:\MinGit
+
+# google's super-special "build system within a build system"
 ADD https://storage.googleapis.com/chrome-infra/depot_tools.zip C:\GOOGLE\depot_tools.zip
 RUN mkdir C:\GOOGLE\depot_tools
 RUN tar -xf C:\GOOGLE\depot_tools.zip -C C:\GOOGLE\depot_tools
@@ -103,19 +108,17 @@ SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPref
 ARG ANGLE_VERSION
 ENV DEPOT_TOOLS_WIN_TOOLCHAIN=0
 
-# set PATH to include google's tools
-RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
+# set PATH to include google's tools, and git
+RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
 
-# download and extract
-ADD https://github.com/google/angle/archive/refs/heads/chromium/${ANGLE_VERSION}.zip C:\GOOGLE\angle.zip
-RUN tar -xf C:\GOOGLE\angle.zip -C C:\GOOGLE
-
-WORKDIR C:\GOOGLE\angle-chromium-${ANGLE_VERSION}
+WORKDIR C:\GOOGLE
 
 # set up the build environment
+RUN git clone https://chromium.googlesource.com/angle/angle
+WORKDIR C:\GOOGLE\angle
 RUN python .\scripts\bootstrap.py
-RUN git checkout chromium/${ANGLE_VERSION}
 RUN gclient sync
+RUN git checkout chromium/${ANGLE_VERSION}
 
 ###############################
 # compiler image: build ANGLE #
@@ -123,16 +126,14 @@ RUN gclient sync
 
 FROM checkout AS angle_compiler
 
-# Makefile
-ARG ANGLE_VERSION
-
 # use PowerShell
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 # re-set depot_tools PATH just in case
-RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
+RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
 
-WORKDIR C:\GOOGLE\angle-chromium-${ANGLE_VERSION}
+
+WORKDIR C:\GOOGLE\angle
 
 # compile ANGLE
 RUN gn gen out/Release
