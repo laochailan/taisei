@@ -118,7 +118,8 @@ RUN git clone https://chromium.googlesource.com/angle/angle
 WORKDIR C:\GOOGLE\angle
 RUN python .\scripts\bootstrap.py
 RUN gclient sync
-RUN git checkout chromium/${ANGLE_VERSION}
+
+RUN git checkout chromium/$ANGLE_VERSION
 
 ###############################
 # compiler image: build ANGLE #
