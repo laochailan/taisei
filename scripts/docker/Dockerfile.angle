@@ -1,12 +1,14 @@
 # escape=`
 
+ARG ANGLE_VERSION
+
 ########################################
 # vscode image: install MS build tools #
 ########################################
 
 FROM mcr.microsoft.com/dotnet/framework/sdk:4.8-windowsservercore-ltsc2019 as vscode
 
-SHELL ["cmd", "/S", "/C"]
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 # installs VS 2019 Community
 # may or may not be needed, keeping here for now
@@ -17,7 +19,9 @@ SHELL ["cmd", "/S", "/C"]
 # 	--includeRecommended --update --quiet --norestart --passive
 
 # CLI build tools for Visual Studio
-ADD https://aka.ms/vs/16/release/vs_buildtools.exe C:\TEMP\vs_buildtools.exe
+RUN mkdir C:\TEMP; Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile C:\TEMP\vs_buildtools.exe
+
+SHELL ["cmd", "/S", "/C"]
 
 # installs the v19041 SDK which ANGLE needs
 RUN C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache `
@@ -84,14 +88,10 @@ RUN $url = ('https://www.python.org/ftp/python/{0}/python-{1}-amd64.exe' -f $env
 	Write-Host 'Complete.'
 
 # install minimal git
-ADD https://github.com/git-for-windows/git/releases/download/v2.31.1.windows.1/MinGit-2.31.1-64-bit.zip C:\TEMP\MinGit.zip
-RUN mkdir C:\MinGit
-RUN tar -xf C:\TEMP\MinGit.zip -C C:\MinGit
+RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.31.1.windows.1/MinGit-2.31.1-64-bit.zip -OutFile C:\TEMP\MinGit.zip; mkdir C:\MinGit; tar -xf C:\TEMP\MinGit.zip -C C:\MinGit
 
 # google's super-special "build system within a build system"
-ADD https://storage.googleapis.com/chrome-infra/depot_tools.zip C:\GOOGLE\depot_tools.zip
-RUN mkdir C:\GOOGLE\depot_tools
-RUN tar -xf C:\GOOGLE\depot_tools.zip -C C:\GOOGLE\depot_tools
+RUN Invoke-WebRequest -Uri https://storage.googleapis.com/chrome-infra/depot_tools.zip -OutFile C:\GOOGLE\depot_tools.zip; mkdir C:\GOOGLE\depot_tools; tar -xf C:\GOOGLE\depot_tools.zip -C C:\GOOGLE\depot_tools
 
 ENTRYPOINT ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
 
@@ -105,7 +105,6 @@ FROM depot_tools AS checkout
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 # from the Makefile, i.e: '4484'
-ARG ANGLE_VERSION
 ENV DEPOT_TOOLS_WIN_TOOLCHAIN=0
 
 # set PATH to include google's tools, and git
@@ -116,10 +115,7 @@ WORKDIR C:\GOOGLE
 # set up the build environment
 RUN git clone https://chromium.googlesource.com/angle/angle
 WORKDIR C:\GOOGLE\angle
-RUN python .\scripts\bootstrap.py
-RUN gclient sync
-
-RUN git checkout chromium/$ANGLE_VERSION
+RUN python .\scripts\bootstrap.py; gclient sync
 
 ###############################
 # compiler image: build ANGLE #
@@ -127,12 +123,15 @@ RUN git checkout chromium/$ANGLE_VERSION
 
 FROM checkout AS angle_compiler
 
+ENV ANGLE_VERSION=${ANGLE_VERSION}
+RUN echo "Checking out ANGLE version: $ANGLE_VERSION"
+RUN git checkout chromium/$ANGLE_VERSION
+
 # use PowerShell
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 # re-set depot_tools PATH just in case
 RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
-
 
 WORKDIR C:\GOOGLE\angle
 
