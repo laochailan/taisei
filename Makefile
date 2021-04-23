@@ -93,7 +93,7 @@ docker/windows:
 	docker cp taisei:/opt/taisei-exe.zip ./
 
 docker/angle:
-	docker build -t taisei -f "scripts/docker/Dockerfile.angle" --build-arg ANGLE_VERSION=4484 scripts/docker
+	docker build ./scripts/docker/ -m 4GB -t taisei -f "scripts/docker/Dockerfile.angle" --build-arg ANGLE_VERSION=4484
 
 docker/windows/zip:
 	zip -r /opt/taisei-exe.zip /opt/taisei-exe

@@ -1,53 +1,50 @@
 # escape=`
 
-ARG ANGLE_VERSION
-
 ########################################
 # vscode image: install MS build tools #
 ########################################
 
-FROM mcr.microsoft.com/dotnet/framework/sdk:4.8-windowsservercore-ltsc2019 as vscode
+FROM mcr.microsoft.com/windows/servercore:ltsc2019 AS vscode
 
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
-# installs VS 2019 Community
-# may or may not be needed, keeping here for now
-# ADD https://aka.ms/vs/16/release/vs_Community.exe C:\TEMP\vs_Community.exe
-# RUN C:\TEMP\vs_Community.exe `
-# 	--installPath C:\VS `
-# 	--add Microsoft.VisualStudio.Workload.Python `
-# 	--includeRecommended --update --quiet --norestart --passive
+# download tools
+RUN mkdir C:\TEMP; `
+	Invoke-WebRequest -Uri https://aka.ms/vs/16/release/channel -OutFile C:\TEMP\VisualStudio.chman; `
+	Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile C:\TEMP\vs_buildtools.exe; `
+	Invoke-WebRequest -Uri https://aka.ms/vscollect.exe -OutFile C:\TEMP\collect.exe;
 
-# CLI build tools for Visual Studio
-RUN mkdir C:\TEMP; Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile C:\TEMP\vs_buildtools.exe
+# why does it need to install through a cmd script? nobody knows
+# actually pulls this file from where the Dockerfile is located
+# i.e: taisei/scripts/docker/
+COPY Install.cmd C:\TEMP\
 
 SHELL ["cmd", "/S", "/C"]
 
-# installs the v19041 SDK which ANGLE needs
-RUN C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache `
-	--installPath C:\BuildTools `
+# installs everything we need... hopefully
+RUN C:\TEMP\Install.cmd C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache `
+	--channelUri C:\TEMP\VisualStudio.chman `
+	--installChannelUri C:\TEMP\VisualStudio.chman `
+	--add Microsoft.VisualStudio.Workload.NativeGame `
+	--add Microsoft.VisualStudio.Workload.NetCoreBuildTools `
+	--add Microsoft.VisualStudio.Workload.AzureBuildTools `
+	--add Microsoft.VisualStudio.Workload.VCTools `
+	--add Microsoft.VisualStudio.Component.Graphics.Tools `
+	--add Microsoft.VisualStudio.Component.VC.140 `
+	--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+	--add Microsoft.VisualStudio.Component.VC.CMake.Project `
 	--add Microsoft.VisualStudio.Component.Windows10SDK.19041 `
-	--add Microsoft.VisualStudio.Workload.Python `
+	--add Microsoft.VisualStudio.Component.VC.Llvm.Clang `
+	--add Microsoft.Net.Component.4.8.SDK `
 	--remove Microsoft.VisualStudio.Component.Windows10SDK.10240 `
 	--remove Microsoft.VisualStudio.Component.Windows10SDK.10586 `
 	--remove Microsoft.VisualStudio.Component.Windows10SDK.14393 `
 	--remove Microsoft.VisualStudio.Component.Windows81SDK `
- || IF "%ERRORLEVEL%"=="3010" EXIT 0
-
-ENTRYPOINT ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
-
-###########################################
-# depot_tools image: install google tools #
-###########################################
-
-FROM vscode AS depot_tools
-
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-
-# aka 'cd C:\TEMP'
-WORKDIR C:\TEMP
+	--includeOptional --includeRecommended `
+	--installPath C:\BuildTools
 
 # 'easiest' way to get Python on Windows
+# this looks scary but it's just downloading the file and running the installer
 ENV PYTHON_VERSION 3.8.9
 ENV PYTHON_RELEASE 3.8.9
 RUN $url = ('https://www.python.org/ftp/python/{0}/python-{1}-amd64.exe' -f $env:PYTHON_RELEASE, $env:PYTHON_VERSION); `
@@ -88,10 +85,32 @@ RUN $url = ('https://www.python.org/ftp/python/{0}/python-{1}-amd64.exe' -f $env
 	Write-Host 'Complete.'
 
 # install minimal git
-RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.31.1.windows.1/MinGit-2.31.1-64-bit.zip -OutFile C:\TEMP\MinGit.zip; mkdir C:\MinGit; tar -xf C:\TEMP\MinGit.zip -C C:\MinGit
+RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.31.1.windows.1/MinGit-2.31.1-64-bit.zip -OutFile C:\TEMP\MinGit.zip; `
+	mkdir C:\MinGit; `
+	tar -xf C:\TEMP\MinGit.zip -C C:\MinGit
+
+ENTRYPOINT C:\BuildTools\Common7\Tools\VsDevCmd.bat && CMD ["powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+
+###########################################
+# depot_tools image: install google tools #
+###########################################
+
+FROM vscode AS depot_tools
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# aka 'cd C:\TEMP'
+WORKDIR C:\TEMP
 
 # google's super-special "build system within a build system"
-RUN Invoke-WebRequest -Uri https://storage.googleapis.com/chrome-infra/depot_tools.zip -OutFile C:\GOOGLE\depot_tools.zip; mkdir C:\GOOGLE\depot_tools; tar -xf C:\GOOGLE\depot_tools.zip -C C:\GOOGLE\depot_tools
+RUN Invoke-WebRequest -Uri https://storage.googleapis.com/chrome-infra/depot_tools.zip -OutFile C:\TEMP\depot_tools.zip; `
+	mkdir C:\GOOGLE\depot_tools; `
+	tar -xf C:\TEMP\depot_tools.zip -C C:\GOOGLE\depot_tools
+
+WORKDIR C:\GOOGLE
+
+# set up the build environment
+RUN git clone https://chromium.googlesource.com/angle/angle
 
 ENTRYPOINT ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
 
@@ -104,16 +123,12 @@ FROM depot_tools AS checkout
 # use PowerShell
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
-# from the Makefile, i.e: '4484'
+# required by Google
 ENV DEPOT_TOOLS_WIN_TOOLCHAIN=0
 
 # set PATH to include google's tools, and git
 RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
 
-WORKDIR C:\GOOGLE
-
-# set up the build environment
-RUN git clone https://chromium.googlesource.com/angle/angle
 WORKDIR C:\GOOGLE\angle
 RUN python .\scripts\bootstrap.py; gclient sync
 
@@ -123,15 +138,27 @@ RUN python .\scripts\bootstrap.py; gclient sync
 
 FROM checkout AS angle_compiler
 
-ENV ANGLE_VERSION=${ANGLE_VERSION}
-RUN echo "Checking out ANGLE version: $ANGLE_VERSION"
-RUN git checkout chromium/$ANGLE_VERSION
-
 # use PowerShell
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
+# required by Google
+ENV DEPOT_TOOLS_WIN_TOOLCHAIN=0
+
+ENV MSBuildBinPath C:\BuildTools\MSBuild\16.0\Bin\
+
+ENV MSBuildExtensionsPath C:\BuildTools\
+
+ENV MSBuildExtensionsPath32 C:\BuildTools\
+
 # re-set depot_tools PATH just in case
 RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
+
+# from Makefile
+ARG ANGLE_VERSION
+ENV ANGLE_VERSION=${ANGLE_VERSION:-4484}
+
+RUN echo "Checking out ANGLE version: $Env:ANGLE_VERSION"
+RUN git checkout chromium/$Env:ANGLE_VERSION
 
 WORKDIR C:\GOOGLE\angle
 
