@@ -23,25 +23,25 @@ SHELL ["cmd", "/S", "/C"]
 
 # installs everything we need... hopefully
 RUN C:\TEMP\Install.cmd C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache `
+	--installPath C:\BuildTools `
 	--channelUri C:\TEMP\VisualStudio.chman `
 	--installChannelUri C:\TEMP\VisualStudio.chman `
-	--add Microsoft.VisualStudio.Workload.NativeGame `
-	--add Microsoft.VisualStudio.Workload.NetCoreBuildTools `
 	--add Microsoft.VisualStudio.Workload.AzureBuildTools `
 	--add Microsoft.VisualStudio.Workload.VCTools `
-	--add Microsoft.VisualStudio.Component.Graphics.Tools `
+	--add Microsoft.VisualStudio.Workload.NativeGame `
 	--add Microsoft.VisualStudio.Component.VC.140 `
 	--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
 	--add Microsoft.VisualStudio.Component.VC.CMake.Project `
-	--add Microsoft.VisualStudio.Component.Windows10SDK.19041 `
 	--add Microsoft.VisualStudio.Component.VC.Llvm.Clang `
+	--add Microsoft.VisualStudio.Component.Windows10SDK.19041 `
 	--add Microsoft.Net.Component.4.8.SDK `
 	--remove Microsoft.VisualStudio.Component.Windows10SDK.10240 `
 	--remove Microsoft.VisualStudio.Component.Windows10SDK.10586 `
 	--remove Microsoft.VisualStudio.Component.Windows10SDK.14393 `
 	--remove Microsoft.VisualStudio.Component.Windows81SDK `
-	--includeOptional --includeRecommended `
-	--installPath C:\BuildTools
+	--includeOptional --includeRecommended
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 # 'easiest' way to get Python on Windows
 # this looks scary but it's just downloading the file and running the installer
@@ -102,6 +102,9 @@ SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPref
 # aka 'cd C:\TEMP'
 WORKDIR C:\TEMP
 
+# set PATH to include google's tools, and git
+RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
+
 # google's super-special "build system within a build system"
 RUN Invoke-WebRequest -Uri https://storage.googleapis.com/chrome-infra/depot_tools.zip -OutFile C:\TEMP\depot_tools.zip; `
 	mkdir C:\GOOGLE\depot_tools; `
@@ -126,11 +129,11 @@ SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPref
 # required by Google
 ENV DEPOT_TOOLS_WIN_TOOLCHAIN=0
 
-# set PATH to include google's tools, and git
-RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
-
+# re-set depot_tools PATH just in case
 WORKDIR C:\GOOGLE\angle
-RUN python .\scripts\bootstrap.py; gclient sync
+RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine); `
+	python .\scripts\bootstrap.py; `
+	gclient sync
 
 ###############################
 # compiler image: build ANGLE #
@@ -163,5 +166,5 @@ RUN git checkout chromium/$Env:ANGLE_VERSION
 WORKDIR C:\GOOGLE\angle
 
 # compile ANGLE
-RUN gn gen out/Release
-RUN autoninja -C out/Release
+RUN gn gen out/Release; `
+	autoninja -C out/Release
