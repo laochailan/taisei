@@ -93,7 +93,7 @@ docker/windows:
 	docker cp taisei:/opt/taisei-exe.zip ./
 
 docker/angle:
-	@echo "To build this one Windows, you must have '"storage-opt": ["size=50GB"]' in your daemon.json for Docker"
+	@echo "To build this on Windows, you must have '"storage-opt": ["size=120GB"]' in your daemon.json for Docker"
 	docker build ./scripts/docker/ -m 4GB -t taisei -f "scripts/docker/Dockerfile.angle" --build-arg ANGLE_VERSION=4484
 
 docker/windows/zip:
