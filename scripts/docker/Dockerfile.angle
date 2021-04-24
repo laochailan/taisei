@@ -11,7 +11,7 @@ SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPref
 # download tools
 RUN mkdir C:\TEMP; `
 	Invoke-WebRequest -Uri https://aka.ms/vs/16/release/channel -OutFile C:\TEMP\VisualStudio.chman; `
-	Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile C:\TEMP\vs_buildtools.exe; `
+	Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_community.exe -OutFile C:\TEMP\vs_community.exe; `
 	Invoke-WebRequest -Uri https://aka.ms/vscollect.exe -OutFile C:\TEMP\collect.exe;
 
 # why does it need to install through a cmd script? nobody knows
@@ -22,8 +22,7 @@ COPY Install.cmd C:\TEMP\
 SHELL ["cmd", "/S", "/C"]
 
 # installs everything we need... hopefully
-RUN C:\TEMP\Install.cmd C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache `
-	--installPath C:\BuildTools `
+RUN C:\TEMP\Install.cmd C:\TEMP\vs_community.exe --quiet --wait --norestart --nocache `
 	--channelUri C:\TEMP\VisualStudio.chman `
 	--installChannelUri C:\TEMP\VisualStudio.chman `
 	--add Microsoft.VisualStudio.Workload.AzureBuildTools `
@@ -89,8 +88,6 @@ RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/downl
 	mkdir C:\MinGit; `
 	tar -xf C:\TEMP\MinGit.zip -C C:\MinGit
 
-ENTRYPOINT C:\BuildTools\Common7\Tools\VsDevCmd.bat && CMD ["powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
-
 ###########################################
 # depot_tools image: install google tools #
 ###########################################
@@ -114,8 +111,6 @@ WORKDIR C:\GOOGLE
 
 # set up the build environment
 RUN git clone https://chromium.googlesource.com/angle/angle
-
-ENTRYPOINT ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
 
 ###################################
 # checkout image: check out ANGLE #
@@ -146,12 +141,6 @@ SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPref
 
 # required by Google
 ENV DEPOT_TOOLS_WIN_TOOLCHAIN=0
-
-ENV MSBuildBinPath C:\BuildTools\MSBuild\16.0\Bin\
-
-ENV MSBuildExtensionsPath C:\BuildTools\
-
-ENV MSBuildExtensionsPath32 C:\BuildTools\
 
 # re-set depot_tools PATH just in case
 RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', [EnvironmentVariableTarget]::Machine) + ';C:\MinGit\cmd\;C:\MinGit\cmd;C:\GOOGLE\depot_tools', [EnvironmentVariableTarget]::Machine)
