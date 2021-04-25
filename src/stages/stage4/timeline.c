@@ -41,54 +41,6 @@ static void stage4_dialog_post_boss(void) {
 	INVOKE_TASK_INDIRECT(Stage4PostBossDialog, pm->dialog->Stage4PostBoss);
 }
 
-static int stage4_bigcircle(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 3, ITEM_POWER, 1);
-
-		return 1;
-	}
-
-	FROM_TO(0, 70, 1)
-		e->pos += e->args[0];
-
-	FROM_TO(200, 300, 1)
-		e->pos -= e->args[0];
-
-
-	FROM_TO(80,100+30*global.diff,20) {
-		play_sound("shot_special1");
-		int i;
-		int n = 10+3*global.diff;
-		for(i = 0; i < n; i++) {
-			PROJECTILE(
-				.proto = pp_bigball,
-				.pos = e->pos,
-				.color = RGBA(0, 0.8 - 0.4 * _i, 0, 0),
-				.rule = asymptotic,
-				.args = {
-					2*cexp(2.0*I*M_PI/n*i+I*3*_i),
-					3*sin(6*M_PI/n*i)
-				},
-			);
-
-			if(global.diff > D_Easy) {
-				PROJECTILE(
-					.proto = pp_ball,
-					.pos = e->pos,
-					.color = RGBA(0, 0.3 * _i, 0.4, 0),
-					.rule = asymptotic,
-					.args = {
-						(1.5+global.diff*0.2)*cexp(I*3*(i+frand())),
-						I*5*sin(6*M_PI/n*i)
-					},
-				);
-			}
-		}
-	}
-	return 1;
-}
-
 
 static void kurumi_intro(Boss *b, int t) {
 	GO_TO(b, BOSS_DEFAULT_GO_POS, 0.03);
@@ -434,6 +386,56 @@ TASK(backfire_swirl, { cmplx pos; MoveParams move; }) {
 	STALL;
 }
 
+TASK(bigcircle_fairy_move, { BoxedEnemy enemy; cmplx vel; }) {
+	Enemy *e = TASK_BIND(ARGS.enemy);
+
+	e->move = move_linear(ARGS.vel);
+	WAIT(70);
+	e->move = move_stop(0.9);
+	WAIT(130);
+	e->move = move_linear(-ARGS.vel);
+	WAIT(100);
+	e->move = move_stop(0.9);
+}
+	
+	
+
+TASK(bigcircle_fairy, { cmplx pos; cmplx vel; }) {
+	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 3, .power = 1)));
+	INVOKE_TASK(bigcircle_fairy_move, ENT_BOX(e), ARGS.vel);
+
+	WAIT(80);
+	int shots = difficulty_value(3, 4, 6, 7);
+	for(int i = 0; i < shots; i++) {
+
+		play_sfx("shot_special1");
+		int count = difficulty_value(13, 16, 19, 22);
+		real ball_speed = difficulty_value(1.7, 1.9, 2.1, 2.3);
+
+		for(int j = 0; j < count; j++) {
+			PROJECTILE(
+				.proto = pp_bigball,
+				.pos = e->pos,
+				.color = RGBA(0, 0.8 - 0.4 * i, 0, 0),
+				.move = move_asymptotic_simple(2*cdir(M_TAU / count * j + 3 * i), 3 * sin(6 * M_PI / count * j))
+			);
+
+			if(global.diff > D_Easy) {
+				PROJECTILE(
+					.proto = pp_ball,
+					.pos = e->pos,
+					.color = RGBA(0, 0.3 * i, 0.4, 0),
+					.move = move_asymptotic_simple(ball_speed*cdir(3*(j+rng_real())),
+						I * 5 * sin(6 * M_PI / count * j))
+				);
+			}
+		}
+
+		WAIT(20);
+	}
+}
+
+
 TASK(explosive_swirl_explosion, { BoxedEnemy enemy; }) {
 	Enemy *e = TASK_BIND(ARGS.enemy);
 
@@ -563,6 +565,11 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		real phase = 2*i/M_PI * (1 - 2*(i&1));
 		cmplx pos = -24 + I * psin(phase) * 300;
 		INVOKE_TASK_DELAYED(2060 + 15 * i, fodder_fairy, .pos = pos, .move = move_linear(2 * cdir(0.005 * phase)));
+	}
+
+	for(int i = 0; i < 2; i++) {
+		cmplx pos = VIEWPORT_W / 2.0 + 200 * rng_sreal();
+		INVOKE_TASK_DELAYED(2000 + 200 * i, bigcircle_fairy, .pos = pos, .vel = 2.0 * I);
 	}
 
 	for(int i = 0; i < 40; i++) {
