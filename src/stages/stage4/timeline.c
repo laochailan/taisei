@@ -43,39 +43,7 @@ static void stage4_dialog_post_boss(void) {
 
 
 
-static int stage4_partcircle(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 3);
-		return 1;
-	}
 
-	e->pos += e->args[0];
-
-	FROM_TO(30,60,1) {
-		e->args[0] *= 0.9;
-	}
-
-	FROM_TO(60,76,1) {
-		int i;
-		for(i = 0; i < global.diff; i++) {
-			play_sound("shot2");
-			cmplx n = cexp(I*M_PI/16.0*_i + I*carg(e->args[0])-I*M_PI/4.0 + 0.01*I*i*(1-2*(creal(e->args[0]) > 0)));
-			PROJECTILE(
-				.proto = pp_wave,
-				.pos = e->pos + (30)*n,
-				.color = RGB(1-0.2*i,0.5,0.7),
-				.rule = asymptotic,
-				.args = { 2*n, 2+2*i }
-			);
-		}
-	}
-
-	FROM_TO(160, 200, 1)
-		e->args[0] += 0.05*I;
-
-	return 1;
-}
 
 static int stage4_cardbuster(Enemy *e, int t) {
 	TIMER(&t);
@@ -503,6 +471,43 @@ TASK(fodder_fairy, { cmplx pos; MoveParams move; }) {
 	}
 }
 
+TASK(partcircle_fairy, { cmplx pos; MoveParams move; }) {
+	Enemy *e = TASK_BIND(espawn_fairy_blue(ARGS.pos, ITEMS(.points = 3)));
+
+	e->move = ARGS.move;
+
+	// TODO: replace me by the new common task
+	WAIT(30);
+	e->move.retention = 0.9;
+	WAIT(30);
+	e->move.retention = 1;
+
+	int circles = difficulty_value(1,2,3,4);
+	int projs_per_circle = 16;
+	
+	for(int i = 0; i < projs_per_circle; i++) {
+		for(int j = 0; j < circles; j++) {
+			play_sfx("shot2");
+
+			real angle_offset = -0.01 * i * sign(creal(ARGS.move.velocity));
+			cmplx dir = cdir((i - 4) * M_PI / 16 + angle_offset) * cnormalize(ARGS.move.velocity);
+
+			PROJECTILE(
+				.proto = pp_wave,
+				.pos = e->pos + 30 * dir,
+				.color = RGB(1 - 0.2 * j, 0.5, 0.7),
+				.move = move_asymptotic_simple(2 * dir, 2 + 2 * j),
+			);
+		}
+		YIELD;
+	}
+
+	WAIT(90);
+	e->move = move_accelerated(0, 0.05 * I);
+	WAIT(40);
+	e->move.acceleration = 0;
+}
+
 DEFINE_EXTERN_TASK(stage4_timeline) {
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H/4 * 3 * I, 1);
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_W + VIEWPORT_H/4 * 3 * I, -1);
@@ -513,14 +518,16 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		INVOKE_TASK_DELAYED(300 + 10 * i, fodder_fairy, .pos = pos, .move = move_linear(2 * I * cdir(0.1 * phase)));
 	}
 
+	for(int i = 0; i < 5; i++) {
+		cmplx pos = VIEWPORT_W * (i & 1);
+		cmplx vel = 2 * cdir(M_PI / 2 * (0.2 + 0.6 * rng_real() + (i & 1)));
 
+		INVOKE_TASK_DELAYED(500 + 10 * i, partcircle_fairy, .pos = pos, .move = move_linear(vel));
+	}
+				     
 
 /* void stage4_events(void) { */
 
-/* 	FROM_TO(500, 550, 10) { */
-/* 		int d = _i&1; */
-/* 		create_enemy1c(VIEWPORT_W*d, 1000, Fairy, stage4_partcircle, 2*cexp(I*M_PI/2.0*(0.2+0.6*frand()+d))); */
-/* 	} */
 
 /* 	FROM_TO(600, 1400, 100) { */
 /* 		create_enemy3c(VIEWPORT_W/4.0 + VIEWPORT_W/2.0*(_i&1), 3000, BigFairy, stage4_cardbuster, VIEWPORT_W/6.0 + VIEWPORT_W/3.0*2*(_i&1)+100.0*I, */
@@ -546,7 +553,7 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 /* 	AT(3200) */
 /* 		global.boss = create_kurumi_mid(); */
 
-/* 	int midboss_time = STAGE4_MIDBOSS_MUSIC_TIME; */
+ 	int midboss_time = STAGE4_MIDBOSS_MUSIC_TIME;
 
 /* 	AT(3201) { */
 /* 		if(global.boss) { */
@@ -563,13 +570,16 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 	for(int i = 0; i < 20; i++) {
 		real phase = 2 * i/M_PI;
 		cmplx pos = I* VIEWPORT_W * (i&1) * 120 * psin(phase);
-		INVOKE_TASK_DELAYED(2060 + 15 * i, fodder_fairy, .pos = pos, .move = move_linear(2 - 4 * (i & 1) + I));
+		INVOKE_TASK_DELAYED(2060 + midboss_time + 15 * i, fodder_fairy, .pos = pos, .move = move_linear(2 - 4 * (i & 1) + I));
+	}
+			     
+	for(int i = 0; i < 11; i++) {
+		cmplx pos = VIEWPORT_W * (i & 1);
+		cmplx vel = 2 * cdir(M_PI / 2 * (0.2 + 0.6 * rng_real() + (i & 1)));
+
+		INVOKE_TASK_DELAYED(3350 + midboss_time + 60 * i, partcircle_fairy, .pos = pos, .move = move_linear(vel));
 	}
 
-/* 	FROM_TO(3350 + midboss_time, 4000 + midboss_time, 60) { */
-/* 		int d = _i&1; */
-/* 		create_enemy1c(VIEWPORT_W*d, 1000, Fairy, stage4_partcircle, 2*cexp(I*M_PI/2.0*(0.2+0.6*frand()+d))); */
-/* 	} */
 
 /* 	FROM_TO(3550 + midboss_time, 4200 + midboss_time, 200) { */
 /* 		create_enemy3c(VIEWPORT_W/4.0 + VIEWPORT_W/2.0*(_i&1), 3000, BigFairy, stage4_cardbuster, VIEWPORT_W/2.+VIEWPORT_W*0.4*(1-2*(_i&1))+100.0*I, */
