@@ -41,10 +41,6 @@ static void stage4_dialog_post_boss(void) {
 	INVOKE_TASK_INDIRECT(Stage4PostBossDialog, pm->dialog->Stage4PostBoss);
 }
 
-
-
-
-
 static int stage4_bigcircle(Enemy *e, int t) {
 	TIMER(&t);
 	AT(EVENT_KILLED) {
@@ -115,68 +111,6 @@ static Boss *create_kurumi_mid(void) {
 	boss_add_attack(b, AT_Move, "Outro", 2, 1, kurumi_outro, NULL);
 	boss_start_attack(b, b->attacks);
 	return b;
-}
-
-static int splitcard(Projectile *p, int t) {
-	if(t < 0) {
-		return ACTION_ACK;
-	}
-
-	if(t == creal(p->args[2])) {
-		// projectile_set_prototype(p, pp_bigball);
-		p->color = *RGB(p->color.b, 0.2, p->color.g);
-		play_sound_ex("redirect", 10, false);
-		spawn_projectile_highlight_effect(p);
-	}
-
-	if(t > creal(p->args[2])) {
-		p->args[0] += 0.01*p->args[3];
-		asymptotic(p, t);
-	} else {
-		p->angle = carg(p->args[0]);
-	}
-
-	return ACTION_NONE; // asymptotic(p, t);
-}
-
-static int stage4_supercard(Enemy *e, int t) {
-	int time = t % 150;
-
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 5);
-		return 1;
-	}
-
-	e->pos += e->args[0];
-
-	FROM_TO(50, 70, 1) {
-		e->args[0] *= 0.7;
-	}
-
-	if(t > 450) {
-		e->pos -= I;
-		return 1;
-	}
-
-	__timep = &time;
-
-	FROM_TO(70, 70+20*global.diff, 1) {
-		play_sound_ex("shot1",5,false);
-
-		cmplx n = cexp(I*(2*M_PI/20.0*_i + (t / 150) * M_PI/4));
-		for(int i = -1; i <= 1 && t; i++) {
-			PROJECTILE(
-				.proto = pp_card,
-				.pos = e->pos + 30*n,
-				.color = RGB(0,0.4,1-_i/40.0),
-				.rule = splitcard,
-				.args = {1*n, 0.1*_i, 100-time+70, 2*I*i*n}
-			);
-		}
-	}
-
-	return 1;
 }
 
 static void kurumi_boss_intro(Boss *b, int t) {
@@ -531,10 +465,70 @@ TASK(explosive_swirl, { cmplx pos; MoveParams move; }) {
 		INVOKE_TASK_DELAYED(100, explosive_swirl_explosion, ENT_BOX(e));
 	}
 }
+
+TASK(supercard_proj, { cmplx pos; Color color; MoveParams move_start; MoveParams move_split; int split_time; }) {
+	Projectile *p = TASK_BIND(PROJECTILE(
+		.proto = pp_card,
+		.pos = ARGS.pos,
+		.color = &ARGS.color,
+	));
+	p->move = ARGS.move_start;
+	
+	WAIT(ARGS.split_time);
+	p->color = *RGB(p->color.b, 0.2, p->color.g);
+	play_sfx_ex("redirect", 10, false);
+	spawn_projectile_highlight_effect(p);
+	p->move = ARGS.move_split;
+}
+
+TASK(supercard_fairy_move, { BoxedEnemy enemy; }) {
+	Enemy *e = TASK_BIND(ARGS.enemy);
+
+	WAIT(50);
+	e->move.retention = 0.7;
+	WAIT(20);
+	e->move.retention = 1;
+	WAIT(380);
+	e->move = move_linear(-I);
+}
+
+TASK(supercard_fairy, { cmplx pos; MoveParams move; }) {
+	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 5)));
+	e->move = ARGS.move;
+	INVOKE_TASK(supercard_fairy_move, ENT_BOX(e));
+
+	for(int repeat = 0;; repeat++) {
+		WAIT(70);
+		int count = difficulty_value(20, 40, 40, 50);
+		int fan = difficulty_value(1, 1, 2, 2);
+
+		for(int i = 0; i < count; i++) { 
+			play_sfx_ex("shot1",5,false);
+
+			cmplx dir = cdir(M_TAU / count * i + repeat * M_PI/4);
+			
+			for(int j = -fan; j <= fan; j++) {
+				MoveParams move_split = move_accelerated(dir, 0.01 * (1 + j * I) * dir);
+				move_split.retention = 0.99;
+
+				INVOKE_TASK(supercard_proj,
+					.pos = e->pos + 30 * dir,
+					.color = *RGB(0, 0.4, 1 - 0.5 * psin(i / 20.0)),
+					.move_start = move_linear(0.01 * dir),
+					.move_split = move_split, 
+					.split_time = 100 - i
+				);
+			}
+
+			YIELD;
+		}
+	}
+}
+
 	
 DEFINE_EXTERN_TASK(stage4_timeline) {
-	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H/4 * 3 * I, 1);
-	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_W + VIEWPORT_H/4 * 3 * I, -1);
+	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H / 4.0 * 3 * I, 1);
+	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_W + VIEWPORT_H / 4.0 * 3 * I, -1);
 
 	for(int i = 0; i < 15; i++) {
 		real phase = 2 * i / M_PI * (1 - 2 * (i&1));
@@ -595,7 +589,7 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 			     
 	for(int i = 0; i < 20; i++) {
 		real phase = 2 * i/M_PI;
-		cmplx pos = I* VIEWPORT_W * (i&1) * 120 * psin(phase);
+		cmplx pos = VIEWPORT_W * (i&1) + I * 120 * psin(phase);
 		INVOKE_TASK_DELAYED(2060 + midboss_time + 15 * i, fodder_fairy, .pos = pos, .move = move_linear(2 - 4 * (i & 1) + I));
 	}
 			     
@@ -617,9 +611,10 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		});
 	}
 		
-
-/* 	AT(3800 + midboss_time) */
-/* 		create_enemy1c(VIEWPORT_W/2, 9000, BigFairy, stage4_supercard, 4.0*I); */
+	INVOKE_TASK_DELAYED(3800 + midboss_time, supercard_fairy,
+			    .pos = VIEWPORT_W / 2.0,
+			    .move = move_linear(4.0 * I)
+	);
 
 	int swirl_delay = difficulty_value(85, 75, 65, 55);
 	int swirl_count = 300 / swirl_delay;
