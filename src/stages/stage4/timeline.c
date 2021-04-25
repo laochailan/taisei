@@ -43,41 +43,7 @@ static void stage4_dialog_post_boss(void) {
 
 
 
-static int stage4_backfire(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 5);
-		return 1;
-	}
 
-	FROM_TO(0,20,1)
-		e->args[0] -= 0.05*I;
-
-	FROM_TO(60,100,1)
-		e->args[0] += 0.05*I;
-
-	if(t > 100)
-		e->args[0] -= 0.02*I;
-
-
-	e->pos += e->args[0];
-
-	FROM_TO(20,180+global.diff*20,2) {
-		play_sound("shot2");
-		cmplx n = cexp(I*M_PI*frand()-I*copysign(M_PI/2.0, creal(e->args[0])));
-		for(int i = 0; i < global.diff; i++) {
-			PROJECTILE(
-				.proto = pp_wave,
-				.pos = e->pos,
-				.color = RGB(0.2, 0.2, 1-0.2*i),
-				.rule = asymptotic,
-				.args = { 2*n, 2+2*i }
-			);
-		}
-	}
-
-	return 1;
-}
 
 static int stage4_bigcircle(Enemy *e, int t) {
 	TIMER(&t);
@@ -528,6 +494,44 @@ TASK(cardbuster_fairy, { cmplx poss[4]; }) {
 	STALL;
 }
 
+TASK(backfire_swirl_move, { BoxedEnemy enemy; }) {
+	Enemy *e = TASK_BIND(ARGS.enemy);
+
+	e->move.acceleration = -0.05 * I;
+	WAIT(20);
+	e->move.acceleration = 0;
+	WAIT(40);
+	e->move.acceleration = 0.05 * I;
+	WAIT(40);
+	e->move.acceleration = -0.02 * I;
+}
+	
+
+TASK(backfire_swirl, { cmplx pos; MoveParams move; }) {
+	Enemy *e = TASK_BIND(espawn_swirl(ARGS.pos, ITEMS(.points = 5)));
+	e->move = ARGS.move;
+
+	INVOKE_SUBTASK(backfire_swirl_move, ENT_BOX(e));
+
+	WAIT(20);
+	int count = difficulty_value(90, 100, 110, 120);
+	for(int i = 0; i < count; i++) {
+		play_sfx("shot2");
+		cmplx dir = cdir(M_PI * rng_real() - M_PI / 2.0 * sign(creal(ARGS.move.velocity)));
+		for(int j = 0; j < global.diff; j++) {
+			PROJECTILE(
+				.proto = pp_wave,
+				.pos = e->pos,
+				.color = RGB(0.2, 0.2, 1 - 0.2 * j),
+				.move = move_asymptotic_simple(2 * dir, 2 + 2 * j),
+			);
+		}
+		WAIT(2);
+	}
+
+	STALL;
+}
+
 DEFINE_EXTERN_TASK(stage4_timeline) {
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H/4 * 3 * I, 1);
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_W + VIEWPORT_H/4 * 3 * I, -1);
@@ -546,8 +550,6 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 	}
 				     
 
-/* void stage4_events(void) { */
-
 	for(int i = 0; i < 8; i++) {
 		cmplx pos0 = VIEWPORT_W * (1.0 + 2.0 * (i & 1)) / 4.0;
 		cmplx pos1 = VIEWPORT_W * (1.0 + 4.0 * (i & 1)) / 6.0 + 100 * I;
@@ -560,10 +562,8 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 	}
 			
 
-/* 	AT(1800) { */
-/* 		create_enemy1c(VIEWPORT_H/2.0*I, 2000, Swirl, stage4_backfire, 0.3); */
-/* 		create_enemy1c(VIEWPORT_W+VIEWPORT_H/2.0*I, 2000, Swirl, stage4_backfire, -0.5); */
-/* 	} */
+	INVOKE_TASK_DELAYED(1800, backfire_swirl, .pos = VIEWPORT_H / 2.0 * I, .move = move_linear(0.3));
+	INVOKE_TASK_DELAYED(1800, backfire_swirl, .pos = VIEWPORT_W + VIEWPORT_H / 2.0 * I, .move = move_linear(-0.3));
 
 	for(int i = 0; i < 36; i++) {
 		real phase = 2*i/M_PI * (1 - 2*(i&1));
@@ -621,8 +621,12 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 /* 	AT(3800 + midboss_time) */
 /* 		create_enemy1c(VIEWPORT_W/2, 9000, BigFairy, stage4_supercard, 4.0*I); */
 
-/* 	FROM_TO(4300 + midboss_time, 4600 + midboss_time, 95-10*global.diff) */
-/* 		create_enemy1c(VIEWPORT_W*(_i&1)+100*I, 200, Swirl, stage4_backfire, frand()*(1-2*(_i&1))); */
+	int swirl_delay = difficulty_value(85, 75, 65, 55);
+	int swirl_count = 300 / swirl_delay;
+	for(int i = 0; i < swirl_count; i++) {
+		cmplx pos = VIEWPORT_W * (i & 1) + 100 * I;
+		INVOKE_TASK_DELAYED(4300 + midboss_time + swirl_delay * i, backfire_swirl, .pos = pos, .move = move_linear(rng_real() * (1 - 2 * (i & 1))));
+	}
 
 /* 	FROM_TO(4800 + midboss_time, 5200 + midboss_time, 10) */
 /* 		create_enemy1c(20.0*I+I*VIEWPORT_H/3*frand()+VIEWPORT_W*(_i&1), 100, Swirl, stage4_explosive, (1-2*(_i&1))*3+I); */
@@ -642,7 +646,7 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 /* 		stage_finish(GAMEOVER_SCORESCREEN); */
 /* 	} */
 /* } */
-	WAIT(5000);
+	WAIT(5400 + midboss_time);
 	stage_finish(GAMEOVER_SCORESCREEN);
 }
 
