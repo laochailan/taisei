@@ -43,52 +43,6 @@ static void stage4_dialog_post_boss(void) {
 
 
 
-
-
-static int stage4_cardbuster(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 3, ITEM_POWER, 1);
-		return 1;
-	}
-
-	FROM_TO(0, 120, 1)
-		e->pos += (e->args[0]-e->pos0)/120.0;
-
-	FROM_TO(200, 300, 1)
-		e->pos += (e->args[1]-e->args[0])/100.0;
-
-	FROM_TO(400, 600, 1)
-		e->pos += (e->args[2]-e->args[1])/200.0;
-
-	int c = 40;
-	cmplx n = cexp(I*carg(global.plr.pos - e->pos) + 4*M_PI/(c+1)*I*_i);
-
-	FROM_TO_SND("shot1_loop", 60, 60+c*global.diff, 1) {
-		for(int i = 0; i < 3; ++i) {
-			PROJECTILE(
-				.proto = pp_card,
-				.pos = e->pos + 30*n,
-				.color = RGB(0, 0.2, 0.4 + 0.2 * i),
-				.rule = accelerated,
-				.args = { (0.8+0.2*global.diff)*(1.0 + 0.1 * i)*n, 0.01*(1+0.01*_i)*n }
-			);
-		}
-	}
-
-	FROM_TO_SND("shot1_loop", 240, 260+20*global.diff, 1) {
-		PROJECTILE(
-			.proto = pp_card,
-			.pos = e->pos + 30*n,
-			.color = RGB(0, 0.7, 0.5),
-			.rule = asymptotic,
-			.args = { (0.8+0.2*global.diff)*n, 0.4*I }
-		);
-	}
-
-	return 1;
-}
-
 static int stage4_backfire(Enemy *e, int t) {
 	TIMER(&t);
 	AT(EVENT_KILLED) {
@@ -508,6 +462,72 @@ TASK(partcircle_fairy, { cmplx pos; MoveParams move; }) {
 	e->move.acceleration = 0;
 }
 
+TASK(cardbuster_fairy_move, { Enemy *e; int stops; cmplx *poss; int *move_times; int *pause_times; }) {
+	for(int i = 0; i < ARGS.stops-1; i++) {
+		WAIT(ARGS.pause_times[i]);
+		ARGS.e->move = move_linear((ARGS.poss[i+1] - ARGS.e->pos) / ARGS.move_times[i]);
+		WAIT(ARGS.move_times[i]);
+		ARGS.e->move = move_stop(0.8);
+	}
+}
+	
+
+TASK(cardbuster_fairy_second_attack, { Enemy *e; }) {
+	int count = difficulty_value(40, 60, 80, 100);
+	for(int i = 0; i < count; i++) {
+		play_sfx_loop("shot1_loop");
+		cmplx dir = cnormalize(global.plr.pos - ARGS.e->pos) * cdir(2 * M_TAU / (count + 1) * i);
+		real speed = difficulty_value(1.0, 1.2, 1.4, 1.6);
+		PROJECTILE(
+			.proto = pp_card,
+			.pos = ARGS.e->pos + 30 * dir,
+			.color = RGB(0, 0.7, 0.5),
+			.move = move_asymptotic_simple(speed * dir, 0.4*I),
+		);
+		YIELD;
+	}
+}
+	
+
+TASK(cardbuster_fairy, { cmplx poss[4]; }) {
+	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.poss[0], ITEMS(.points = 3, .power = 1)));
+
+	int move_times[ARRAY_SIZE(ARGS.poss)-1] = {
+		120, 100, 200
+	};
+	int pause_times[ARRAY_SIZE(ARGS.poss)-1] = {
+		0, 80, 100
+	};
+	int second_attack_delay = 240;
+
+	INVOKE_SUBTASK(cardbuster_fairy_move, e, ARRAY_SIZE(ARGS.poss), ARGS.poss, move_times, pause_times);
+	INVOKE_SUBTASK_DELAYED(second_attack_delay, cardbuster_fairy_second_attack, e);
+
+	
+	int count = difficulty_value(40, 80, 120, 160);
+
+	WAIT(60);
+	for(int i = 0; i < count; i++) {
+		play_sfx_loop("shot1_loop");
+		cmplx dir = cnormalize(global.plr.pos - e->pos) * cdir(2 * M_TAU / (count + 1) * i);
+
+		for(int j = 0; j < 3; j++) {
+			real speed = difficulty_value(1.0, 1.2, 1.4, 1.6) * (1.0 + 0.1 * j);
+			real speedup = 0.01*(1.0 + 0.01 * i);
+			PROJECTILE(
+				.proto = pp_card,
+				.pos = e->pos + 30 * dir,
+				.color = RGB(0, 0.2, 0.4 + 0.2 * j),
+				.move = move_asymptotic_simple(speed * dir, speedup * dir),
+			);
+		}
+
+		YIELD;
+	}
+
+	STALL;
+}
+
 DEFINE_EXTERN_TASK(stage4_timeline) {
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H/4 * 3 * I, 1);
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_W + VIEWPORT_H/4 * 3 * I, -1);
@@ -528,11 +548,17 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 
 /* void stage4_events(void) { */
 
-
-/* 	FROM_TO(600, 1400, 100) { */
-/* 		create_enemy3c(VIEWPORT_W/4.0 + VIEWPORT_W/2.0*(_i&1), 3000, BigFairy, stage4_cardbuster, VIEWPORT_W/6.0 + VIEWPORT_W/3.0*2*(_i&1)+100.0*I, */
-/* 					VIEWPORT_W/4.0 + VIEWPORT_W/2.0*((_i+1)&1)+300.0*I, VIEWPORT_W/2.0+VIEWPORT_H*I+200.0*I); */
-/* 	} */
+	for(int i = 0; i < 8; i++) {
+		cmplx pos0 = VIEWPORT_W * (1.0 + 2.0 * (i & 1)) / 4.0;
+		cmplx pos1 = VIEWPORT_W * (1.0 + 4.0 * (i & 1)) / 6.0 + 100 * I;
+		cmplx pos2 = VIEWPORT_W * (1.0 + 2.0 * ((i+1) & 1)) / 4.0 + 300 * I;
+		cmplx pos3 = VIEWPORT_W * 0.5 + (VIEWPORT_H + 200) * I;
+		
+		INVOKE_TASK_DELAYED(600 + 100 * i, cardbuster_fairy, .poss = { 
+			pos0, pos1, pos2, pos3
+		});
+	}
+			
 
 /* 	AT(1800) { */
 /* 		create_enemy1c(VIEWPORT_H/2.0*I, 2000, Swirl, stage4_backfire, 0.3); */
@@ -580,11 +606,17 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		INVOKE_TASK_DELAYED(3350 + midboss_time + 60 * i, partcircle_fairy, .pos = pos, .move = move_linear(vel));
 	}
 
-
-/* 	FROM_TO(3550 + midboss_time, 4200 + midboss_time, 200) { */
-/* 		create_enemy3c(VIEWPORT_W/4.0 + VIEWPORT_W/2.0*(_i&1), 3000, BigFairy, stage4_cardbuster, VIEWPORT_W/2.+VIEWPORT_W*0.4*(1-2*(_i&1))+100.0*I, */
-/* 					VIEWPORT_W/4.0+VIEWPORT_W/2.0*((_i+1)&1)+300.0*I, VIEWPORT_W/2.0-200.0*I); */
-/* 	} */
+	for(int i = 0; i < 4; i++) {
+		cmplx pos0 = VIEWPORT_W * (1.0 + 2.0 * (i & 1)) / 4.0;
+		cmplx pos1 = VIEWPORT_W * (0.5 + 0.4 * (1 - 2 * (i & 1))) + 100.0 * I; // TODO: ???
+		cmplx pos2 = VIEWPORT_W * (1.0 + 2.0 * ((i + 1) & 1)) / 4.0 + 300.0*I;
+		cmplx pos3 = VIEWPORT_W * 0.5 - 200 * I;
+		
+		INVOKE_TASK_DELAYED(3550 + midboss_time + 200 * i, cardbuster_fairy, .poss = { 
+			pos0, pos1, pos2, pos3
+		});
+	}
+		
 
 /* 	AT(3800 + midboss_time) */
 /* 		create_enemy1c(VIEWPORT_W/2, 9000, BigFairy, stage4_supercard, 4.0*I); */
