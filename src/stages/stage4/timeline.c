@@ -93,39 +93,6 @@ static int stage4_bigcircle(Enemy *e, int t) {
 	return 1;
 }
 
-static int stage4_explosive(Enemy *e, int t) {
-	if(t == EVENT_KILLED || (t >= 100 && global.diff >= D_Normal)) {
-		int i;
-
-		if(t == EVENT_KILLED)
-			spawn_items(e->pos, ITEM_POWER, 1);
-
-		int n = 10*global.diff;
-		cmplx phase = global.plr.pos-e->pos;
-		phase /= cabs(phase);
-
-		for(i = 0; i < n; i++) {
-			double angle = 2*M_PI*i/n+carg(phase);
-			PROJECTILE(
-				.proto = pp_ball,
-				.pos = e->pos,
-				.color = RGB(0.1+0.6*(i&1), 0.2, 1-0.6*(i&1)),
-				.rule = accelerated,
-				.args = {
-					1.5*(1.1+0.3*global.diff)*cexp(I*angle),
-					0.001*cexp(I*angle)
-				}
-			);
-		}
-
-		play_sound("shot1");
-		return ACTION_DESTROY;
-	}
-
-	e->pos += e->args[0];
-
-	return 1;
-}
 
 static void kurumi_intro(Boss *b, int t) {
 	GO_TO(b, BOSS_DEFAULT_GO_POS, 0.03);
@@ -338,6 +305,7 @@ TASK(splasher_fairy, { cmplx pos; int direction; }) {
 	WAIT(60);
 	e->move = move_linear(-ARGS.direction);
 }
+
 TASK(fodder_fairy, { cmplx pos; MoveParams move; }) {
 	Enemy *e = TASK_BIND(espawn_fairy_red(ARGS.pos, ITEMS(.power = 1)));
 	e->move = ARGS.move;
@@ -532,6 +500,38 @@ TASK(backfire_swirl, { cmplx pos; MoveParams move; }) {
 	STALL;
 }
 
+TASK(explosive_swirl_explosion, { BoxedEnemy enemy; }) {
+	Enemy *e = TASK_BIND(ARGS.enemy);
+
+	int count = difficulty_value(10, 20, 30, 40);
+	cmplx aim = cnormalize(global.plr.pos - e->pos);
+
+	real speed = 1.5 * difficulty_value(1.4, 1.7, 2.0, 2.3);
+
+	for(int i = 0; i < count; i++) {
+		cmplx dir = cdir(M_TAU * i / count) * aim;
+		PROJECTILE(
+			.proto = pp_ball,
+			.pos = e->pos,
+			.color = RGB(0.1 + 0.6 * (i&1), 0.2, 1 - 0.6 * (i&1)),
+			.move = move_accelerated(speed * dir, 0.001*dir),
+		);
+	}
+
+	play_sfx("shot1");
+	enemy_kill(e);
+}
+
+TASK(explosive_swirl, { cmplx pos; MoveParams move; }) {
+	Enemy *e = TASK_BIND(espawn_swirl(ARGS.pos, ITEMS(.power = 1)));
+	e->move = ARGS.move;
+
+	INVOKE_TASK_WHEN(&e->events.killed, explosive_swirl_explosion, ENT_BOX(e));
+	if(global.diff >= D_Normal) {
+		INVOKE_TASK_DELAYED(100, explosive_swirl_explosion, ENT_BOX(e));
+	}
+}
+	
 DEFINE_EXTERN_TASK(stage4_timeline) {
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H/4 * 3 * I, 1);
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_W + VIEWPORT_H/4 * 3 * I, -1);
@@ -571,10 +571,10 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		INVOKE_TASK_DELAYED(2060 + 15 * i, fodder_fairy, .pos = pos, .move = move_linear(2 * cdir(0.005 * phase)));
 	}
 
-/* 	FROM_TO(2000, 2400, 200) */
-
-/* 	FROM_TO(2600, 3000, 10) */
-/* 		create_enemy1c(20.0*I+VIEWPORT_H/3*I*frand()+VIEWPORT_W, 100, Swirl, stage4_explosive, -3); */
+	for(int i = 0; i < 40; i++) {
+		cmplx pos = VIEWPORT_W + I * (20 + VIEWPORT_H / 3.0 * rng_real());
+		INVOKE_TASK_DELAYED(2600 + 10 * i, explosive_swirl, .pos = pos, .move = move_linear(-3));
+	}
 
 /* 	AT(3200) */
 /* 		global.boss = create_kurumi_mid(); */
@@ -608,7 +608,7 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 
 	for(int i = 0; i < 4; i++) {
 		cmplx pos0 = VIEWPORT_W * (1.0 + 2.0 * (i & 1)) / 4.0;
-		cmplx pos1 = VIEWPORT_W * (0.5 + 0.4 * (1 - 2 * (i & 1))) + 100.0 * I; // TODO: ???
+		cmplx pos1 = VIEWPORT_W * (0.5 + 0.4 * (1 - 2 * (i & 1))) + 100.0 * I;
 		cmplx pos2 = VIEWPORT_W * (1.0 + 2.0 * ((i + 1) & 1)) / 4.0 + 300.0*I;
 		cmplx pos3 = VIEWPORT_W * 0.5 - 200 * I;
 		
@@ -628,9 +628,11 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		INVOKE_TASK_DELAYED(4300 + midboss_time + swirl_delay * i, backfire_swirl, .pos = pos, .move = move_linear(rng_real() * (1 - 2 * (i & 1))));
 	}
 
-/* 	FROM_TO(4800 + midboss_time, 5200 + midboss_time, 10) */
-/* 		create_enemy1c(20.0*I+I*VIEWPORT_H/3*frand()+VIEWPORT_W*(_i&1), 100, Swirl, stage4_explosive, (1-2*(_i&1))*3+I); */
-
+	for(int i = 0; i < 40; i++) {
+		cmplx pos = VIEWPORT_W * (i & 1) + I * (20.0 + VIEWPORT_H/3.0 * rng_real());
+		cmplx vel = 3 * (1 - 2 * (i & 1)) + I;
+		INVOKE_TASK_DELAYED(4800 + midboss_time + 10 * i, explosive_swirl, .pos = pos, .move = move_linear(vel));
+	}
 /* 	AT(5300 + midboss_time) { */
 /* 		stage_unlock_bgm("stage4"); */
 /* 		stage4_bg_redden_corridor(); */
