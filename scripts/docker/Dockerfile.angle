@@ -8,26 +8,73 @@ FROM mcr.microsoft.com/windows/servercore:ltsc2019 AS vscode
 
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
-# download tools
+# just in case
+USER ContainerAdministrator
+
+# to install ANGLE on Windows, you need:
+# 1. VS2019 Community (no exceptions - ANGLE is hard-coded to require this specific version, you CANNOT substitute this for VS Build Tools)
+# 2. Windows 10 SDK v19041
+# 3. Windows Driver Kit (depends on Windows SDK)
+# 4. Python (required by ANGLE build system)
+# 5. Git (through MinGit, not shipped with Windows)
 RUN mkdir C:\TEMP; `
-	Invoke-WebRequest -Uri https://aka.ms/vs/16/release/channel -OutFile C:\TEMP\VisualStudio.chman; `
 	Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_community.exe -OutFile C:\TEMP\vs_community.exe; `
-	Invoke-WebRequest -Uri https://aka.ms/vscollect.exe -OutFile C:\TEMP\collect.exe;
+	Invoke-WebRequest -Uri http://download.microsoft.com/download/6/3/B/63BADCE0-F2E6-44BD-B2F9-60F5F073038E/standalonesdk/SDKSETUP.EXE -OutFile C:\TEMP\sdksetup.exe; `
+	Invoke-WebRequest -Uri https://download.microsoft.com/download/c/f/8/cf80b955-d578-4635-825c-2801911f9d79/wdk/wdksetup.exe -OutFile C:\TEMP\wdksetup.exe; `
+	Invoke-WebRequest -Uri https://aka.ms/vscollect.exe -OutFile C:\TEMP\collect.exe; `
+	Invoke-WebRequest -Uri https://aka.ms/vs/16/release/channel -OutFile C:\TEMP\VisualStudio.chman
 
-# why does it need to install through a cmd script? nobody knows
-# actually pulls this file from where the Dockerfile is located
-# i.e: taisei/scripts/docker/
-COPY Install.cmd C:\TEMP\
+# running the MSI in any other way makes it fail to launch, silently
+RUN New-Item -Path C:\TEMP\sdksetup -Type Directory -Force|out-null ; `
+	$procArgs=@('-norestart','-quiet','-ceip off','-Log C:\TEMP\sdksetup\sdksetup.exe.log','-Layout C:\TEMP\sdksetup', `
+	'-Features OptionId.NetFxSoftwareDevelopmentKit OptionId.WindowsSoftwareDevelopmentKit OptionID.WindowsDesktopDebuggers OptionId.WindowsPerformanceToolkit'); `
+	Write-Host 'Downloading of Win10SDK files...'; `
+	$proc=Start-Process -FilePath C:\TEMP\sdksetup.exe -ArgumentList $procArgs -wait -PassThru ; `
+	if ($proc.ExitCode -eq 0) { `
+		Write-Host 'Win10SDK download complete.' `
+	} else { `
+		get-content -Path C:\TEMP\sdksetup\sdksetup.exe.log -ea Ignore | write-output ; `
+		throw ('C:\TEMP\sdksetup.exe returned '+$proc.ExitCode) `
+	} `
+	'Windows SDK EULA-x86_en-us.msi','Windows SDK-x86_en-us.msi', `
+	'Windows SDK Desktop Headers Libs Metadata-x86_en-us.msi', `
+	'Windows SDK Desktop Tools-x86_en-us.msi','Windows SDK Modern Versioned Developer Tools-x86_en-us.msi', `
+	'Windows SDK Redistributables-x86_en-us.msi','Windows SDK DirectX x64 Remote-x64_en-us.msi', `
+	'Windows SDK DirectX x86 Remote-x86_en-us.msi', 'Universal CRT Redistributable-x86_en-us.msi', `
+	'Universal CRT Headers Libraries and Sources-x86_en-us.msi','Universal CRT Tools x64-x64_en-us.msi', `
+	'Universal CRT Tools x86-x86_en-us.msi','X86 Debuggers And Tools-x86_en-us.msi', `
+	'X64 Debuggers And Tools-x64_en-us.msi', 'WPTx64-x86_en-us.msi','WPTx86-x86_en-us.msi' `
+	| ForEach-Object -Process { `
+		Write-Host ('Executing MsiExec.exe with parameters:'); `
+		$MsiArgs=@(('/i '+[char]0x0022+'C:\TEMP\sdksetup\Installers\'+$_+[char]0x0022), `
+				('/log '+[char]0x0022+'C:\TEMP\sdksetup\'+$_+'.log'+[char]0x0022),'/qn','/norestart'); `
+		Write-Output $MsiArgs; `
+		# actually install SDK(s)
+		$proc=Start-Process msiexec.exe -ArgumentList $MsiArgs -Wait -PassThru -Verbose; `
+		if ($proc.ExitCode -eq 0) { Write-Host '...Success!' `
+		} else { `
+			get-content -Path ('C:\TEMP\sdksetup\'+$_+'.log') -ea Ignore | write-output; `
+			throw ('...Failure!  '+$_+' returned '+$proc.ExitCode) `
+		} `
+	 }; `
+	Write-Host 'Win10SDK Installation Complete.' ; `
+	Remove-Item C:\TEMP\sdksetup.exe -Force; `
+	Remove-Item C:\TEMP\sdksetup\ -Recurse -Force
 
+# install Windows Driver Kit
+RUN Start-Process -FilePath C:\TEMP\wdksetup.exe -ArgumentList @('/q', '/norestart') -wait -PassThru -Verbose
+
+# switch to CMD for this as VS2019 is picky
 SHELL ["cmd", "/S", "/C"]
 
-# installs everything we need... hopefully
+COPY Install.cmd C:\TEMP\
+
+# vs2019 community
 RUN C:\TEMP\Install.cmd C:\TEMP\vs_community.exe --quiet --wait --norestart --nocache `
 	--channelUri C:\TEMP\VisualStudio.chman `
 	--installChannelUri C:\TEMP\VisualStudio.chman `
 	--add Microsoft.VisualStudio.Workload.AzureBuildTools `
 	--add Microsoft.VisualStudio.Workload.VCTools `
-	--add Microsoft.VisualStudio.Workload.NativeGame `
 	--add Microsoft.VisualStudio.Component.VC.140 `
 	--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
 	--add Microsoft.VisualStudio.Component.VC.CMake.Project `
@@ -40,6 +87,7 @@ RUN C:\TEMP\Install.cmd C:\TEMP\vs_community.exe --quiet --wait --norestart --no
 	--remove Microsoft.VisualStudio.Component.Windows81SDK `
 	--includeOptional --includeRecommended
 
+#... and back to PowerShell
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 # 'easiest' way to get Python on Windows
@@ -54,16 +102,7 @@ RUN $url = ('https://www.python.org/ftp/python/{0}/python-{1}-amd64.exe' -f $env
 	Write-Host 'Installing ...'; `
 	# https://docs.python.org/3/using/windows.html#installing-without-ui
 	$exitCode = (Start-Process python.exe -Wait -NoNewWindow -PassThru `
-		-ArgumentList @( `
-			'/quiet', `
-			'InstallAllUsers=1', `
-			'TargetDir=C:\Python', `
-			'PrependPath=1', `
-			'Shortcuts=0', `
-			'Include_doc=0', `
-			'Include_pip=0', `
-			'Include_test=0' `
-		) `
+		-ArgumentList @('/quiet', 'InstallAllUsers=1', 'TargetDir=C:\Python', 'PrependPath=1', 'Shortcuts=0', 'Include_doc=0', 'Include_pip=0', 'Include_test=0' ) `
 	).ExitCode; `
 	if ($exitCode -ne 0) { `
 		Write-Host ('Running python installer failed with exit code: {0}' -f $exitCode); `
@@ -86,7 +125,10 @@ RUN $url = ('https://www.python.org/ftp/python/{0}/python-{1}-amd64.exe' -f $env
 # install minimal git
 RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.31.1.windows.1/MinGit-2.31.1-64-bit.zip -OutFile C:\TEMP\MinGit.zip; `
 	mkdir C:\MinGit; `
-	tar -xf C:\TEMP\MinGit.zip -C C:\MinGit
+	tar -xf C:\TEMP\MinGit.zip -C C:\MinGit;
+
+# delete installers
+RUN Remove-Item 'C:\TEMP' -Recurse
 
 ###########################################
 # depot_tools image: install google tools #
@@ -149,7 +191,7 @@ RUN [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentV
 ARG ANGLE_VERSION
 ENV ANGLE_VERSION=${ANGLE_VERSION:-4484}
 
-RUN echo "Checking out ANGLE version: $Env:ANGLE_VERSION"
+RUN Write-Host 'Checking out ANGLE version: '; Write-Host $Env:ANGLE_VERSION
 RUN git checkout chromium/$Env:ANGLE_VERSION
 
 WORKDIR C:\GOOGLE\angle

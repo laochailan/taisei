@@ -88,18 +88,32 @@ clean:
 submodule-update:
 	git submodule update --init --recursive
 
-docker/windows:
-	docker build -t taisei -f "scripts/docker/Dockerfile.windows"
-	docker cp taisei:/opt/taisei-exe.zip ./
-
-docker/angle:
-	@echo "To build this on Windows, you must have '"storage-opt": ["size=120GB"]' in your daemon.json for Docker"
-	docker build ./scripts/docker/ -m 4GB -t taisei -f "scripts/docker/Dockerfile.angle" --build-arg ANGLE_VERSION=4484
-
-docker/windows/zip:
-	zip -r /opt/taisei-exe.zip /opt/taisei-exe
-
 all: clean setup compile install
 all-windows: clean setup-windows compile install docker/windows/zip
 
 all/debug: clean setup setup/developer setup/debug compile install
+
+##########
+# docker #
+##########
+
+docker/windows:
+	docker build -t taisei-windows-builder -f "scripts/docker/Dockerfile.windows"
+	docker cp taisei-windows-builder:/opt/taisei-exe.zip ./
+
+docker/angle:
+	@echo "To build this on Windows, you must have '"storage-opt": ["size=130GB"]' in your daemon.json for Docker"
+	docker build ./scripts/docker/ -m 12GB -t taisei-angle-builder -f "scripts/docker/Dockerfile.angle" --build-arg ANGLE_VERSION=4484 # build the image, this can take 2 hours so please wait warmly
+	docker run -m 4GB --name taisei-temp taisei-angle-builder:latest # start up a container that dies immediately because of no entrypoint
+	docker cp taisei-temp:"C:\\GOOGLE\\angle\\out\\Release\\libGLESv2.dll" ./ # copy locally
+	docker cp taisei-temp:"C:\\GOOGLE\\angle\\out\\Release\\libEGL.dll" ./ # copy locally
+	docker rm taisei-temp # remove unneeded container (the image is still available as taisei-angle-builder)
+
+####################
+# internal helpers #
+####################
+
+# not intended to be run on their own, meant for CI
+
+_docker/windows/zip:
+	zip -r /opt/taisei-exe.zip /opt/taisei-exe
