@@ -92,79 +92,6 @@ static Boss *create_kurumi(void) {
 	return b;
 }
 
-static int scythe_post_mid(Enemy *e, int t) {
-	TIMER(&t);
-
-	int fleetime = creal(e->args[3]);
-
-	if(t == EVENT_DEATH) {
-		if(fleetime >= 300) {
-			spawn_items(e->pos, ITEM_LIFE, 1);
-		}
-
-		return 1;
-	}
-
-	if(t < 0) {
-		return 1;
-	}
-
-	AT(fleetime) {
-		return ACTION_DESTROY;
-	}
-
-	double scale = fmin(1.0, t / 60.0) * (1.0 - clamp((t - (fleetime - 60)) / 60.0, 0.0, 1.0));
-	double alpha = scale * scale;
-	double spin = (0.2 + 0.2 * (1.0 - alpha)) * 1.5;
-
-	cmplx opos = VIEWPORT_W/2+160*I;
-	double targ = (t-300) * (0.5 + psin(t/300.0));
-	double w = fmin(0.15, 0.0001*targ);
-
-	cmplx pofs = 150*cos(w*targ+M_PI/2.0) + I*80*sin(2*w*targ);
-	pofs += ((VIEWPORT_W/2+VIEWPORT_H/2*I - opos) * (global.diff - D_Easy)) / (D_Lunatic - D_Easy);
-
-	e->pos = opos + pofs * (1.0 - clamp((t - (fleetime - 120)) / 60.0, 0.0, 1.0)) * smooth(smooth(scale));
-	e->args[2] = 0.5 * scale + (1.0 - alpha) * I;
-	e->args[1] = creal(e->args[1]) + spin * I;
-
-	FROM_TO(90, fleetime - 120, 1) {
-		cmplx shotorg = e->pos+80*cexp(I*creal(e->args[1]));
-		cmplx shotdir = cexp(I*creal(e->args[1]));
-
-		struct projentry { ProjPrototype *proj; char *snd; } projs[] = {
-			{ pp_ball,       "shot1"},
-			{ pp_bigball,    "shot1"},
-			{ pp_soul,       "shot_special1"},
-			{ pp_bigball,    "shot1"},
-		};
-
-		struct projentry *pe = &projs[_i % (sizeof(projs)/sizeof(struct projentry))];
-
-		double ca = creal(e->args[1]) + _i/60.0;
-		Color *c = RGB(cos(ca), sin(ca), cos(ca+2.1));
-
-		play_sound_ex(pe->snd, 3, true);
-
-		PROJECTILE(
-			.proto = pe->proj,
-			.pos = shotorg,
-			.color = c,
-			.rule = asymptotic,
-			.args = {
-				(1.2-0.1*global.diff)*shotdir,
-				5 * sin(t/150.0)
-			},
-		);
-	}
-
-	FROM_TO(fleetime - 120, fleetime, 1) {
-		stage_clear_hazards(CLEAR_HAZARDS_ALL);
-	}
-
-	scythe_common(e, t);
-	return 1;
-}
 */
 
 TASK(splasher_fairy, { cmplx pos; int direction; }) {
@@ -397,8 +324,6 @@ TASK(bigcircle_fairy_move, { BoxedEnemy enemy; cmplx vel; }) {
 	WAIT(100);
 	e->move = move_stop(0.9);
 }
-	
-	
 
 TASK(bigcircle_fairy, { cmplx pos; cmplx vel; }) {
 	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 3, .power = 1)));
@@ -527,6 +452,68 @@ TASK(supercard_fairy, { cmplx pos; MoveParams move; }) {
 	}
 }
 
+
+
+TASK(scythe_post_mid, { cmplx pos; int fleetime; }) {
+	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, NULL));
+	e->flags |= EFLAG_NO_HIT | EFLAG_INVULNERABLE | EFLAG_NO_AUTOKILL;
+
+	cmplx anchor = VIEWPORT_W / 2.0 + I * VIEWPORT_H / 3.0;
+
+	e->move = move_towards(anchor, 0.003 + 0.02 * I); 
+
+	real speed = difficulty_value(1.1, 1.0, 0.9, 0.8);
+
+	WAIT(90);
+
+	for(int i = 0; i < ARGS.fleetime - 210; i++, YIELD) {
+		cmplx shotorg = e->pos + 80 * cdir(-0.1 * i);
+		cmplx shotdir = cdir(-0.3563 * i);
+
+		struct projentry { ProjPrototype *proj; char *snd; } projs[] = {
+			{ pp_ball,       "shot1"},
+			{ pp_bigball,    "shot1"},
+			{ pp_soul,       "shot_special1"},
+			{ pp_bigball,    "shot1"},
+		};
+
+		struct projentry *pe = &projs[i % (sizeof(projs)/sizeof(struct projentry))];
+
+		double ca = creal(e->args[1]) + i/60.0;
+		Color *c = RGB(cos(ca), sin(ca), cos(ca+2.1));
+
+		play_sfx_ex(pe->snd, 3, true);
+
+		PROJECTILE(
+			.proto = pe->proj,
+			.pos = shotorg,
+			.color = c,
+			.move = move_asymptotic_simple(speed * shotdir, 5 * sin(i / 150.0))
+		);
+	}
+
+	for(int i = 0; i < 120; i++, YIELD) {
+		stage_clear_hazards(CLEAR_HAZARDS_ALL);
+	}
+
+	if(ARGS.fleetime >= 300) {
+		spawn_items(e->pos, ITEM_LIFE, 1);
+	}
+
+	enemy_kill(e);
+}
+
+
+TASK(ensure_scythe_spawn, { int duration; }) {
+	for(int i = 0; i < ARGS.duration; i++) {
+		if(!global.boss) {
+			INVOKE_TASK(scythe_post_mid, .pos = VIEWPORT_W / 2.0, .fleetime = ARGS.duration - i);
+			return;
+		}
+		YIELD;
+	}
+}
+
 	
 DEFINE_EXTERN_TASK(stage4_timeline) {
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H / 4.0 * 3 * I, 1);
@@ -588,6 +575,7 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 /* 		} */
 /* 	} */
 
+	INVOKE_TASK_DELAYED(3201, ensure_scythe_spawn, .duration = midboss_time -1);
 /* 	FROM_TO(3201, 3201 + midboss_time - 1, 1) { */
 /* 		if(!global.enemies.first) { */
 /* 			create_enemy4c(VIEWPORT_W/2+160.0*I, ENEMY_IMMUNE, scythe_draw, scythe_post_mid, 0, 1+0.2*I, 0+1*I, 3201 + midboss_time - global.timer); */
