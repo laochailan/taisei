@@ -1,5 +1,9 @@
 # Taisei Project Makefile
 
+###########
+# helpers #
+###########
+
 setup/check/prefix:
 ifdef TAISEI_PREFIX
 	@echo "TAISEI_PREFIX is set to: $(TAISEI_PREFIX)"
@@ -17,17 +21,14 @@ ifndef LIBGLES
 	$(error LIBGLES path is not set)
 endif
 
+###########
+# general #
+###########
+
 setup: setup/check/prefix
 	meson setup build/ \
-		--wrap-mode=nofallback \
 		-Ddeprecation_warnings=no-error \
 		-Dwerror=true \
-		$(PREFIX)
-
-setup-windows: setup/check/prefix
-	meson setup build/ \
-		--cross-file scripts/llvm-mingw-x86_64 \
-		-Ddeprecation_warnings=no-error \
 		$(PREFIX)
 
 setup/developer:
@@ -74,8 +75,6 @@ setup/gles/30: setup/check/angle
 		-Dshader_transpiler=true \
 		-Dr_default=gles30
 
-setup/all: setup setup/build-speed setup/developer setup/debug
-
 compile:
 	meson compile -C build/
 
@@ -89,17 +88,58 @@ submodule-update:
 	git submodule update --init --recursive
 
 all: clean setup compile install
-all-windows: clean setup-windows compile install docker/windows/zip
 
-all/debug: clean setup setup/developer setup/debug compile install
+all/debug: clean setup setup/developer setup/debug setup/build-speed compile install
+
+#########
+# linux #
+#########
+
+linux/setup: setup
+
+linux/tar:
+	meson compile xz -C build/
+
+###########
+# windows #
+###########
+
+windows/setup: setup/check/prefix
+	meson setup build/ \
+		--cross-file scripts/llvm-mingw-x86_64 \
+		-Ddeprecation_warnings=no-error \
+		$(PREFIX)
+
+windows/zip:
+	meson compile zip -C build/
+
+windows/installer:
+	meson compile nsis -C build/
+
+windows/all: clean setup-windows compile install
+
+#########
+# macos #
+#########
+
+macos/setup:
+	meson configure build/ \
+		-Dmacos_bundle=true
+
+macos/dmg:
+	meson compile dmg -C build/
+
+macos/all: setup/macos install/macos
+
+##########
+# switch #
+##########
+
+# TODO:
 
 ##########
 # docker #
 ##########
-
-docker/windows:
-	docker build -t taisei-windows-builder -f "scripts/docker/Dockerfile.windows"
-	docker cp taisei-windows-builder:/opt/taisei-exe.zip ./
 
 docker/angle:
 	@echo "To build this on Windows, you must have '"storage-opt": ["size=130GB"]' in your daemon.json for Docker"
@@ -117,3 +157,4 @@ docker/angle:
 
 _docker/windows/zip:
 	zip -r /opt/taisei-exe.zip /opt/taisei-exe
+
