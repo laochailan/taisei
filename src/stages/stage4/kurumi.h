@@ -13,6 +13,9 @@
 
 #include "boss.h"
 
+DECLARE_EXTERN_TASK(stage4_boss_nonspell_burst, { BoxedBoss boss; int duration; int count; });
+DECLARE_EXTERN_TASK(stage4_boss_nonspell_redirect, { BoxedProjectile proj; MoveParams new_move; });
+
 Boss *stage4_spawn_kurumi(cmplx pos);
 void kurumi_slave_visual(Enemy *e, int t, bool render);
 void kurumi_slave_static_visual(Enemy *e, int t, bool render);

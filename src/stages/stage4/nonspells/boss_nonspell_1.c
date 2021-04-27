@@ -13,50 +13,43 @@
 
 #include "global.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
+DEFINE_EXTERN_TASK(stage4_boss_nonspell_1) {
+	STAGE_BOOKMARK(boss-non1);
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
 
-void kurumi_sbreaker(Boss *b, int time) {
-	if(time < 0)
-		return;
+	int duration = difficulty_value(300, 350, 400, 450);
+	int count = difficulty_value(12, 14, 16, 18);
+	int redirect_time = 40;
+	
+	for(;;) {
 
-	int dur = 300+50*global.diff;
-	int t = time % dur;
-	int i;
-	TIMER(&t);
-
-	int c = 10+global.diff*2;
-	int kt = 40;
-
-	FROM_TO_SND("shot1_loop", 50, dur, 2+(global.diff < D_Hard)) {
-		cmplx p = b->pos + 150*sin(_i/8.0)+100.0*I*cos(_i/15.0);
-
-		cmplx n = cexp(2.0*I*M_PI/c*_i);
-		PROJECTILE(
-			.proto = pp_rice,
-			.pos = p,
-			.color = RGB(1.0, 0.0, 0.5),
-			.rule = kurumi_splitcard,
-			.args = {
-				2*n,
-				0,
-				kt,
-				1.5*cexp(I*carg(global.plr.pos - p - 2*kt*n))-1.7*n
-			}
+		int rice_step = difficulty_value(3, 3, 2, 2);
+		WAIT(50);
+		INVOKE_SUBTASK_DELAYED(10, stage4_boss_nonspell_burst, 
+			.boss = ENT_BOX(b),
+			.duration = duration-10,
+			.count = 20
 		);
-	}
 
-	FROM_TO(60, dur, 100) {
-		play_sfx("shot_special1");
-		aniplayer_queue(&b->ani, "muda", 4);
-		aniplayer_queue(&b->ani, "main", 0);
+		for(int i = 0; i < duration/rice_step; i++, WAIT(rice_step)) {
+			play_sfx_loop("shot1_loop");
+			cmplx spawn_pos = b->pos + 150 * sin(i / 8.0) + I * 100.0 * cos(i / 15.0);
 
-		for(i = 0; i < 20; i++) {
-			PROJECTILE(
-				.proto = pp_bigball,
-				.pos = b->pos,
-				.color = RGBA(0.5, 0.0, 0.5, 0.0),
-				.rule = asymptotic,
-				.args = { cexp(2.0*I*M_PI/20.0*i), 3 },
+			cmplx dir = cdir(M_TAU / count * i);
+
+			cmplx redirect_vel = 1.5 * cnormalize(global.plr.pos - spawn_pos - 2 * redirect_time * dir) + 0.3 * dir;
+
+			Projectile *p = PROJECTILE(
+				.proto = pp_rice,
+				.pos = spawn_pos,
+				.color = RGB(1.0, 0.0, 0.5),
+				.move = move_linear(2 * dir),
+			);
+
+			INVOKE_TASK_DELAYED(redirect_time, stage4_boss_nonspell_redirect,
+				.proj = ENT_BOX(p),
+				.new_move = move_asymptotic_simple(redirect_vel, 3)
 			);
 		}
 	}

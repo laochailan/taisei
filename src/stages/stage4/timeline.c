@@ -23,76 +23,15 @@
 #include "common_tasks.h"
 #include "../stage6/elly.h"
 
-/*
-TASK(boss_appear_stub, NO_ARGS) {
-	log_warn("FIXME");
-}
-
 static void stage4_dialog_pre_boss(void) {
 	PlayerMode *pm = global.plr.mode;
-	Stage4PreBossDialogEvents *e;
-	INVOKE_TASK_INDIRECT(Stage4PreBossDialog, pm->dialog->Stage4PreBoss, &e);
-	INVOKE_TASK_WHEN(&e->boss_appears, boss_appear_stub);
-	INVOKE_TASK_WHEN(&e->music_changes, common_start_bgm, "stage4boss");
+	INVOKE_TASK_INDIRECT(Stage4PreBossDialog, pm->dialog->Stage4PreBoss);
 }
 
 static void stage4_dialog_post_boss(void) {
 	PlayerMode *pm = global.plr.mode;
 	INVOKE_TASK_INDIRECT(Stage4PostBossDialog, pm->dialog->Stage4PostBoss);
 }
-
-
-static void kurumi_intro(Boss *b, int t) {
-	GO_TO(b, BOSS_DEFAULT_GO_POS, 0.03);
-}
-
-static void kurumi_outro(Boss *b, int time) {
-	b->pos += -5-I;
-}
-
-static Boss *create_kurumi_mid(void) {
-	Boss *b = stage4_spawn_kurumi(VIEWPORT_W/2-400.0*I);
-
-	boss_add_attack(b, AT_Move, "Introduction", 2, 0, kurumi_intro, NULL);
-	boss_add_attack_from_info(b, &stage4_spells.mid.gate_of_walachia, false);
-	if(global.diff < D_Hard) {
-		boss_add_attack_from_info(b, &stage4_spells.mid.dry_fountain, false);
-	} else {
-		boss_add_attack_from_info(b, &stage4_spells.mid.red_spike, false);
-	}
-	boss_add_attack(b, AT_Move, "Outro", 2, 1, kurumi_outro, NULL);
-	boss_start_attack(b, b->attacks);
-	return b;
-}
-
-static void kurumi_boss_intro(Boss *b, int t) {
-	TIMER(&t);
-	GO_TO(b, BOSS_DEFAULT_GO_POS, 0.015);
-
-	AT(120)
-		stage4_dialog_pre_boss();
-}
-
-static Boss *create_kurumi(void) {
-	Boss *b = stage4_spawn_kurumi(-400.0*I);
-
-	boss_add_attack(b, AT_Move, "Introduction", 4, 0, kurumi_boss_intro, NULL);
-	boss_add_attack(b, AT_Normal, "Sin Breaker", 25, 33000, kurumi_sbreaker, NULL);
-	if(global.diff < D_Hard) {
-		boss_add_attack_from_info(b, &stage4_spells.boss.animate_wall, false);
-	} else {
-		boss_add_attack_from_info(b, &stage4_spells.boss.demon_wall, false);
-	}
-	boss_add_attack(b, AT_Normal, "Cold Breaker", 25, 36000, kurumi_breaker, NULL);
-	boss_add_attack_from_info(b, &stage4_spells.boss.bloody_danmaku, false);
-	boss_add_attack_from_info(b, &stage4_spells.boss.blow_the_walls, false);
-	boss_add_attack_from_info(b, &stage4_spells.extra.vlads_army, false);
-	boss_start_attack(b, b->attacks);
-
-	return b;
-}
-
-*/
 
 TASK(splasher_fairy, { cmplx pos; int direction; }) {
 	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 3, .power = 1, .bomb = 1)));
@@ -452,6 +391,33 @@ TASK(supercard_fairy, { cmplx pos; MoveParams move; }) {
 	}
 }
 
+TASK_WITH_INTERFACE(kurumi_intro, BossAttack) {
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
+	b->move = move_towards(BOSS_DEFAULT_GO_POS, 0.03);
+}
+
+TASK_WITH_INTERFACE(kurumi_outro, BossAttack) {
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
+	b->move = move_linear(-5 - I);
+}
+
+TASK(spawn_midboss, NO_ARGS) {
+	STAGE_BOOKMARK(midboss);
+
+	Boss *b = global.boss = stage4_spawn_kurumi(VIEWPORT_W / 2.0 - 400.0 * I);
+	
+	boss_add_attack_task(b, AT_Move, "Introduction", 2, 0, TASK_INDIRECT(BossAttack, kurumi_intro), NULL);
+	boss_add_attack_from_info(b, &stage4_spells.mid.gate_of_walachia, false);
+	if(global.diff < D_Hard) {
+		boss_add_attack_from_info(b, &stage4_spells.mid.dry_fountain, false);
+	} else {
+		boss_add_attack_from_info(b, &stage4_spells.mid.red_spike, false);
+	}
+	boss_add_attack_task(b, AT_Move, "Outro", 2, 1, TASK_INDIRECT(BossAttack, kurumi_outro), NULL);
+	boss_start_attack(b, b->attacks);
+}
 
 
 TASK(scythe_post_mid, { cmplx pos; int fleetime; }) {
@@ -514,6 +480,37 @@ TASK(ensure_scythe_spawn, { int duration; }) {
 	}
 }
 
+TASK_WITH_INTERFACE(kurumi_boss_intro, BossAttack){
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
+	b->move = move_towards(BOSS_DEFAULT_GO_POS, 0.015);
+
+	WAIT(120);
+	stage4_dialog_pre_boss();
+}
+
+TASK(spawn_boss, NO_ARGS) {
+	STAGE_BOOKMARK(boss);
+	Boss *b = global.boss = stage4_spawn_kurumi(-400 * I);
+
+	stage_unlock_bgm("stage4");
+	stage4_bg_redden_corridor();
+
+	boss_add_attack_task(b, AT_Move, "Introduction", 4, 0, TASK_INDIRECT(BossAttack, kurumi_boss_intro), NULL);
+	boss_add_attack_task(b, AT_Normal, "", 25, 33000, TASK_INDIRECT(BossAttack, stage4_boss_nonspell_1), NULL);
+	if(global.diff < D_Hard) {
+		boss_add_attack_from_info(b, &stage4_spells.boss.animate_wall, false);
+	} else {
+		boss_add_attack_from_info(b, &stage4_spells.boss.demon_wall, false);
+	}
+	boss_add_attack_task(b, AT_Normal, "", 25, 36000, TASK_INDIRECT(BossAttack, stage4_boss_nonspell_2), NULL);
+	boss_add_attack_from_info(b, &stage4_spells.boss.bloody_danmaku, false);
+	boss_add_attack_from_info(b, &stage4_spells.boss.blow_the_walls, false);
+	boss_add_attack_from_info(b, &stage4_spells.extra.vlads_army, false);
+	boss_start_attack(b, b->attacks);
+}
+
+
 	
 DEFINE_EXTERN_TASK(stage4_timeline) {
 	INVOKE_TASK_DELAYED(70, splasher_fairy, VIEWPORT_H / 4.0 * 3 * I, 1);
@@ -564,23 +561,18 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		INVOKE_TASK_DELAYED(2600 + 10 * i, explosive_swirl, .pos = pos, .move = move_linear(-3));
 	}
 
-/* 	AT(3200) */
-/* 		global.boss = create_kurumi_mid(); */
+	WAIT(3200);
+	INVOKE_TASK(spawn_midboss);
+	int midboss_time = WAIT_EVENT(&global.boss->events.defeated).frames;
+	int filler_time = 1900;
+	int time_ofs = 0 - midboss_time;
+	// FIX ME
 
- 	int midboss_time = STAGE4_MIDBOSS_MUSIC_TIME;
+	STAGE_BOOKMARK(post-midboss);
 
-/* 	AT(3201) { */
-/* 		if(global.boss) { */
-/* 			global.timer += fmin(midboss_time, global.frames - global.boss->birthtime) - 1; */
-/* 		} */
-/* 	} */
+	filler_time -= WAIT(300 - midboss_time);
 
 	INVOKE_TASK_DELAYED(3201, ensure_scythe_spawn, .duration = midboss_time -1);
-/* 	FROM_TO(3201, 3201 + midboss_time - 1, 1) { */
-/* 		if(!global.enemies.first) { */
-/* 			create_enemy4c(VIEWPORT_W/2+160.0*I, ENEMY_IMMUNE, scythe_draw, scythe_post_mid, 0, 1+0.2*I, 0+1*I, 3201 + midboss_time - global.timer); */
-/* 		} */
-/* 	} */
 			     
 	for(int i = 0; i < 20; i++) {
 		real phase = 2 * i/M_PI;
@@ -623,6 +615,9 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		cmplx vel = 3 * (1 - 2 * (i & 1)) + I;
 		INVOKE_TASK_DELAYED(4800 + midboss_time + 10 * i, explosive_swirl, .pos = pos, .move = move_linear(vel));
 	}
+
+	INVOKE_TASK_DELAYED(5300 + midboss_time, spawn_boss);
+	WAIT(5300+midboss_time+1);
 /* 	AT(5300 + midboss_time) { */
 /* 		stage_unlock_bgm("stage4"); */
 /* 		stage4_bg_redden_corridor(); */
@@ -634,11 +629,14 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 /* 		stage4_dialog_post_boss(); */
 /* 	} */
 
-/* 	AT(5405 + midboss_time) { */
-/* 		stage_finish(GAMEOVER_SCORESCREEN); */
-/* 	} */
-/* } */
-	WAIT(5400 + midboss_time);
+	WAIT_EVENT(&global.boss->events.defeated);
+	stage_unlock_bgm("stage2boss");
+
+	WAIT(240);
+	stage4_dialog_post_boss();
+	WAIT_EVENT(&global.dialog->events.fadeout_began);
+
+	WAIT(5);
 	stage_finish(GAMEOVER_SCORESCREEN);
 }
 

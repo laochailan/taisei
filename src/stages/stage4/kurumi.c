@@ -14,6 +14,34 @@
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
+DEFINE_EXTERN_TASK(stage4_boss_nonspell_burst) {
+	Boss *b = TASK_BIND(ARGS.boss);
+
+	int count = ARGS.count;
+	for(int i = 0; i < ARGS.duration; i += WAIT(100)) {
+		play_sfx("shot_special1");
+		aniplayer_queue(&b->ani, "muda", 4);
+		aniplayer_queue(&b->ani, "main", 0);
+
+		for(int j = 0; j < count; j++) {
+			PROJECTILE(
+				.proto = pp_bigball,
+				.pos = b->pos,
+				.color = RGBA(0.5, 0.0, 0.5, 0.0),
+				.move = move_asymptotic_simple(cdir(M_TAU / count * j), 3),
+			);
+		}
+	}
+}
+
+DEFINE_EXTERN_TASK(stage4_boss_nonspell_redirect) {
+	Projectile *p = TASK_BIND(ARGS.proj);
+	p->move = ARGS.new_move;
+	p->color.b *= -1;
+	play_sound_ex("redirect", 10, false);
+	spawn_projectile_highlight_effect(p);
+}
+
 static void kurumi_global_rule(Boss *b, int time) {
 	// FIXME: avoid running this every frame!
 
@@ -83,17 +111,3 @@ void kurumi_spell_bg(Boss *b, int time) {
 	r_color4(1, 1, 1, 1);
 }
 
-int kurumi_splitcard(Projectile *p, int t) {
-	if(t < 0) {
-		return ACTION_ACK;
-	}
-
-	if(t == creal(p->args[2])) {
-		p->args[0] += p->args[3];
-		p->color.b *= -1;
-		play_sound_ex("redirect", 10, false);
-		spawn_projectile_highlight_effect(p);
-	}
-
-	return asymptotic(p, t);
-}

@@ -13,7 +13,7 @@
 
 #include "boss.h"
 
-void kurumi_sbreaker(Boss *b, int time);
-void kurumi_breaker(Boss *b, int time);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage4_boss_nonspell_1, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(stage4_boss_nonspell_2, BossAttack);
 
 #endif // IGUARD_stages_stage4_nonspells_nonspells_h
