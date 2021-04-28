@@ -32,11 +32,11 @@ struct stage4_spells_s stage4_spells = {
 		},
 		.dry_fountain = {
 			{ 4,  5, -1, -1}, AT_Spellcard, "Bloodless “Dry Fountain”", 50, 44000,
-			kurumi_redspike, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_dryfountain)
 		},
 		.red_spike = {
 			{-1, -1,  6,  7}, AT_Spellcard, "Bloodless “Red Spike”", 50, 46000,
-			kurumi_redspike, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_redspike)
 		},
 	},
 

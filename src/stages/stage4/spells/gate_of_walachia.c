@@ -8,7 +8,7 @@
 
 #include "taisei.h"
 
-#include "common_tasks.h".h"
+#include "common_tasks.h"
 #include "spells.h"
 #include "../kurumi.h"
 
@@ -38,8 +38,8 @@ TASK(kurumi_walachia_slave, { cmplx pos; cmplx direction; int lifetime; }) {
 	e->flags = EFLAGS_GHOST;
 
 	INVOKE_SUBTASK(kurumi_walachia_slave_move, ENT_BOX(e), ARGS.direction);
-	
-	
+	INVOKE_TASK_AFTER(&TASK_EVENTS(THIS_TASK)->finished, common_kill_enemy, ENT_BOX(e));
+
 	int step = difficulty_value(16, 14, 12, 10);
 	for(int i = 0; i < ARGS.lifetime; i += WAIT(step)) {
 		float r = cimag(e->pos)/VIEWPORT_H;
@@ -55,8 +55,6 @@ TASK(kurumi_walachia_slave, { cmplx pos; cmplx direction; int lifetime; }) {
 
 		play_sfx("shot1");
 	}
-
-	enemy_kill(e);
 }
 
 DEFINE_EXTERN_TASK(kurumi_walachia) {

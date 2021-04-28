@@ -9,102 +9,115 @@
 #include "taisei.h"
 
 #include "spells.h"
+#include "common_tasks.h"
 #include "../kurumi.h"
 
 #include "global.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
+TASK(kurumi_redspike_slave, { cmplx pos; int direction; }) {
+	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 1, kurumi_slave_visual, NULL, 0));
+	e->flags = EFLAGS_GHOST;
 
-static int kurumi_spikeslave(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_BIRTH)
-		e->args[1] = e->args[0];
-	AT(EVENT_DEATH) {
-		free_ref(e->args[2]);
-		return 1;
-	}
+	INVOKE_TASK_AFTER(&TASK_EVENTS(THIS_TASK)->finished, common_kill_enemy, ENT_BOX(e));
 
+	e->move.velocity = ARGS.direction;
+	e->move.retention = cdir(0.01 * ARGS.direction);
 
-	if(t == 300+50*global.diff || REF(e->args[2]) == NULL)
-		return ACTION_DESTROY;
+	int lifetime = difficulty_value(350, 400, 450, 500);
+	int step = difficulty_value(16, 14, 12, 10);
 
-	e->pos += e->args[1];
-	e->args[1] *= cexp(0.01*I*e->args[0]);
-
-	FROM_TO(0, 600, 18-2*global.diff) {
+	for(int i = 0; i < lifetime/step; i++, WAIT(step)) {
 		float r = cimag(e->pos)/VIEWPORT_H;
 
-		for(int i = 1; i >= -1; i -= 2) {
+		for(int d = 1; d >= -1; d -= 2) {
 			PROJECTILE(
 				.proto = pp_wave,
-				.pos = e->pos + 10.0*I*e->args[0],
+				.pos = e->pos + 10.0 * I * ARGS.direction,
 				.color = RGB(r,0,0),
-				.rule = linear,
-				.args = { i*1.5*I*e->args[1] }
+				.move = move_linear(d * 1.5 * I * e->move.velocity)
 			);
 		}
 
-		play_sound("shot1");
+		play_sfx("shot1");
 	}
-
-	return 1;
 }
 
-void kurumi_redspike(Boss *b, int time) {
-	int t = time % 500;
 
-	if(time == EVENT_DEATH)
-		enemy_kill_all(&global.enemies);
+TASK(kurumi_redspike_spawn_slaves, { BoxedBoss boss; int interval; }) {
+	Boss *b = TASK_BIND(ARGS.boss);
 
-	if(time < 0)
-		return;
-
-	TIMER(&t);
-
-	FROM_TO(0, 500, 60) {
-		create_enemy3c(b->pos, ENEMY_IMMUNE, kurumi_slave_visual, kurumi_spikeslave, 1-2*(_i&1), 0, add_ref(b));
+	for(int i = 0;; i++) {
+		INVOKE_SUBTASK(kurumi_redspike_slave, b->pos, 1 - 2 * (i&1));
+		WAIT(ARGS.interval);
 	}
+}
 
-	if(global.diff < D_Hard) {
-		FROM_TO(0, 500, 150-50*global.diff) {
-			int i;
-			int n = global.diff*8;
-			for(i = 0; i < n; i++) {
+DEFINE_EXTERN_TASK(kurumi_dryfountain) {
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
+
+	INVOKE_SUBTASK(kurumi_redspike_spawn_slaves, .boss = ENT_BOX(b), .interval = 60);
+
+	int step = difficulty_value(100, 50, 50, 50);
+	int count = difficulty_value(8, 16, 16, 16);
+	real speed = 3 * difficulty_value(1.1, 1.2, 1.2, 1.2);
+
+	for(;;) {
+		for(int i = 0; i < count; i++) {
+			cmplx vel = speed * cdir(M_TAU / count * i) * cnormalize(global.plr.pos-b->pos);
+			PROJECTILE(
+				.proto = pp_bigball,
+				.pos = b->pos,
+				.color = RGBA(1.0, 0.0, 0.0, 0.0),
+				.move = move_asymptotic_simple(vel, 3)
+			);
+		}
+
+		play_sfx("shot_special1");
+		WAIT(step);
+	}
+}
+
+
+TASK(kurumi_redspike_animate, { BoxedBoss boss; }) {
+	Boss *b = TASK_BIND(ARGS.boss);
+	WAIT(80);
+	aniplayer_queue(&b->ani, "muda", 0);
+	WAIT(420);
+	aniplayer_queue(&b->ani, "main", 0);
+}	
+	
+
+DEFINE_EXTERN_TASK(kurumi_redspike) {
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
+
+	INVOKE_SUBTASK(kurumi_redspike_spawn_slaves, .boss = ENT_BOX(b), .interval = 60);
+	for(;;) {
+		INVOKE_SUBTASK(kurumi_redspike_animate, ENT_BOX(b));
+		WAIT(80);
+
+		for(int rep = 0; rep < 2; rep++) {
+
+			int step = difficulty_value(4, 4, 4, 2);
+
+			for(int i = 0; i < 200; i += WAIT(step)) {
+				RNG_ARRAY(rand, 2);
+				cmplx offset = 100 * vrng_real(rand[0]) * vrng_dir(rand[1]); 
+				cmplx dir = cnormalize(global.plr.pos - b->pos - offset);
+
 				PROJECTILE(
-					.proto = pp_bigball,
-					.pos = b->pos,
-					.color = RGBA(1.0, 0.0, 0.0, 0.0),
-					.rule = asymptotic,
-					.args = {
-						(1+0.1*(global.diff == D_Normal))*3*cexp(2.0*I*M_PI/n*i+I*carg(global.plr.pos-b->pos)),
-						3
-					},
+					.proto = pp_rice,
+					.pos = b->pos+offset,
+					.color = RGBA(1, 0, 0, 0),
+					.move = move_accelerated(-dir, 0.05 * dir),
 				);
+
+				play_sfx_ex("warp",0,false);
 			}
 
-			play_sound("shot_special1");
-		}
-	} else {
-		AT(80) {
-			aniplayer_queue(&b->ani, "muda", 0);
-		}
 
-		AT(499) {
-			aniplayer_queue(&b->ani, "main", 0);
-		}
-
-		FROM_TO_INT(80, 500, 40,200,2+2*(global.diff == D_Hard)) {
-			tsrand_fill(2);
-			cmplx offset = 100*afrand(0)*cexp(2.0*I*M_PI*afrand(1));
-			cmplx n = cexp(I*carg(global.plr.pos-b->pos-offset));
-			PROJECTILE(
-				.proto = pp_rice,
-				.pos = b->pos+offset,
-				.color = RGBA(1, 0, 0, 0),
-				.rule = accelerated,
-				.args = { -1*n, 0.05*n },
-			);
-			play_sound_ex("warp",0,false);
+			WAIT(40);
 		}
 	}
 }
