@@ -28,7 +28,7 @@ struct stage4_spells_s stage4_spells = {
 	.mid = {
 		.gate_of_walachia = {
 			{ 0,  1,  2,  3}, AT_Spellcard, "Bloodless “Gate of Walachia”", 50, 44000,
-			kurumi_slaveburst, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_walachia)
 		},
 		.dry_fountain = {
 			{ 4,  5, -1, -1}, AT_Spellcard, "Bloodless “Dry Fountain”", 50, 44000,

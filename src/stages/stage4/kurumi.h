@@ -19,7 +19,6 @@ DECLARE_EXTERN_TASK(stage4_boss_nonspell_redirect, { BoxedProjectile proj; MoveP
 Boss *stage4_spawn_kurumi(cmplx pos);
 void kurumi_slave_visual(Enemy *e, int t, bool render);
 void kurumi_slave_static_visual(Enemy *e, int t, bool render);
-int kurumi_splitcard(Projectile *p, int t);
 void kurumi_spell_bg(Boss*, int);
 
 #endif // IGUARD_stages_stage4_kurumi_h

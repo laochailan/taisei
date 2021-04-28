@@ -13,7 +13,7 @@
 
 #include "boss.h"
 
-void kurumi_slaveburst(Boss*, int);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_walachia, BossAttack);
 void kurumi_redspike(Boss*, int);
 void kurumi_aniwall(Boss*, int);
 void kurumi_blowwall(Boss*, int);
