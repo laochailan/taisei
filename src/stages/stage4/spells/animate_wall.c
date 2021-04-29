@@ -9,104 +9,96 @@
 #include "taisei.h"
 
 #include "spells.h"
+#include "common_tasks.h"
 #include "../kurumi.h"
 
 #include "global.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
-static int aniwall_bullet(Projectile *p, int t) {
-	if(t < 0) {
-		return ACTION_ACK;
+TASK(kurumi_aniwall_bullet, { cmplx pos; MoveParams move; }) {
+	Projectile *p = TASK_BIND(PROJECTILE(
+		.proto = pp_ball,
+		.pos = ARGS.pos,
+		.color = RGB(1,0,0),
+		.move = ARGS.move,
+	));
+
+	for(;;) {
+		p->color.r = cimag(p->pos)/VIEWPORT_H;
+		YIELD;
 	}
-
-	if(t > creal(p->args[1])) {
-		if(global.diff > D_Normal) {
-			tsrand_fill(2);
-			p->args[0] += 0.1*(0.1-0.2*afrand(0) + 0.1*I-0.2*I*afrand(1))*(global.diff-2);
-			p->args[0] += 0.002*cexp(I*carg(global.plr.pos - p->pos));
-		}
-
-		p->pos += p->args[0];
-	}
-
-	p->color.r = cimag(p->pos)/VIEWPORT_H;
-	return ACTION_NONE;
 }
 
-static int aniwall_slave(Enemy *e, int t) {
-	float re, im;
+TASK(kurumi_aniwall_slave_move, { BoxedEnemy enemy; cmplx direction; }) {
+	Enemy *e = TASK_BIND(ARGS.enemy);
 
-	if(t < 0)
-		return 1;
+	cmplx corners[] = {
+		0,
+		VIEWPORT_W,
+		VIEWPORT_W + I * VIEWPORT_H,
+		I * VIEWPORT_H,
+	};
 
-	if(creal(e->pos) <= 0)
-		e->pos = I*cimag(e->pos);
-	if(creal(e->pos) >= VIEWPORT_W)
-		e->pos = VIEWPORT_W + I*cimag(e->pos);
-	if(cimag(e->pos) <= 0)
-		e->pos = creal(e->pos);
-	if(cimag(e->pos) >= VIEWPORT_H)
-		e->pos = creal(e->pos) + I*VIEWPORT_H;
+	real speed = 10;
 
-	re = creal(e->pos);
-	im = cimag(e->pos);
-
-	if(cabs(e->args[1]) <= 0.1) {
-		if(re == 0 || re == VIEWPORT_W) {
-
-			e->args[1] = 1;
-			e->args[2] = 10.0*I;
-		}
-
-		e->pos += e->args[0]*t;
+	int order;
+	int next;
+	if(creal(ARGS.direction) > 0) {
+		next = 2;
+		order = 1;
 	} else {
-		if((re <= 0) + (im <= 0) + (re >= VIEWPORT_W) + (im >= VIEWPORT_H) == 2) {
-			float sign = 1;
-			sign *= 1-2*(re > 0);
-			sign *= 1-2*(im > 0);
-			sign *= 1-2*(cimag(e->args[2]) == 0);
-			e->args[2] *= sign*I;
-		}
-
-		e->pos += e->args[2];
-
-		if(!(t % 7-global.diff-2*(global.diff > D_Normal))) {
-			cmplx v = e->args[2]/cabs(e->args[2])*I*sign(creal(e->args[0]));
-			if(cimag(v) > -0.1 || global.diff >= D_Normal) {
-				play_sound("shot1");
-				PROJECTILE(
-					.proto = pp_ball,
-					.pos = e->pos+I*v*20*nfrand(),
-					.color = RGB(1,0,0),
-					.rule = aniwall_bullet,
-					.args = { 1*v, 40 }
-				);
-			}
-		}
+		next = 3;
+		order = -1;
 	}
 
-	return 1;
+	for(;; next = (next + order + ARRAY_SIZE(corners)) % ARRAY_SIZE(corners)) {
+		cmplx d = corners[next] - e->pos;
+		e->move = move_linear(speed * cnormalize(d));
+
+		int travel_time = cabs(d) / speed;
+		WAIT(travel_time);
+	}
 }
 
-void kurumi_aniwall(Boss *b, int time) {
-	TIMER(&time);
 
-	AT(EVENT_DEATH) {
-		enemy_kill_all(&global.enemies);
+TASK(kurumi_aniwall_slave, { cmplx pos; cmplx direction; }) {
+	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 1, kurumi_slave_static_visual, NULL, 0));
+	INVOKE_TASK_AFTER(&TASK_EVENTS(THIS_TASK)->finished, common_kill_enemy, ENT_BOX(e));
+
+	e->flags = EFLAGS_GHOST;
+	e->move = move_accelerated(0, 0.2*ARGS.direction);
+	create_lasercurve2c(ARGS.pos, 50, 80, RGBA(1.0, 0.7, 0.4, 0.0), las_accel, 0, e->move.acceleration);
+
+	int impact_time = sqrt(2 * fabs(creal(ARGS.pos - VIEWPORT_W*(creal(ARGS.direction)>0)) / creal(e->move.acceleration)));
+	WAIT(impact_time);
+	e->move = move_linear(10 * I * sign(cimag(ARGS.direction)));
+
+	INVOKE_SUBTASK(kurumi_aniwall_slave_move, ENT_BOX(e), ARGS.direction);
+
+	int step = difficulty_value(6, 5, 2, 1);
+	for(int i = 0;; i++, WAIT(step)) {
+		cmplx vel = sign(creal(ARGS.direction)) * I * cnormalize(e->move.velocity);
+		if(cimag(vel) > -0.1 || global.diff > D_Easy) {
+			play_sfx("shot1");
+			INVOKE_TASK(kurumi_aniwall_bullet,
+				.pos = e->pos + I * vel * 20 * rng_sreal(),
+				.move = move_linear(vel)
+			);
+		}
 	}
+}
 
-	GO_TO(b, VIEWPORT_W/2 + VIEWPORT_W/3*sin(time/200) + I*cimag(b->pos),0.03)
+DEFINE_EXTERN_TASK(kurumi_aniwall) {
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
 
-	if(time < 0)
-		return;
+	b->move = move_towards((VIEWPORT_W + I * VIEWPORT_H) * 0.5, 0.0005);
+	b->move.retention = cdir(0.01);
 
-	AT(0) {
-		aniplayer_queue(&b->ani, "muda", 0);
-		play_sound("laser1");
-		create_lasercurve2c(b->pos, 50, 80, RGBA(1.0, 0.8, 0.8, 0.0), las_accel, 0, 0.2*cexp(0.4*I));
-		create_enemy1c(b->pos, ENEMY_IMMUNE, kurumi_slave_static_visual, aniwall_slave, 0.2*cexp(0.4*I));
-		create_lasercurve2c(b->pos, 50, 80, RGBA(1.0, 0.8, 0.8, 0.0), las_accel, 0, 0.2*cexp(I*M_PI - 0.4*I));
-		create_enemy1c(b->pos, ENEMY_IMMUNE, kurumi_slave_static_visual, aniwall_slave, 0.2*cexp(I*M_PI - 0.4*I));
-	}
+
+	aniplayer_queue(&b->ani, "muda", 0);
+	play_sfx("laser1");
+	INVOKE_SUBTASK(kurumi_aniwall_slave, .pos = b->pos, .direction = cdir(0.4));
+	INVOKE_SUBTASK(kurumi_aniwall_slave, .pos = b->pos, .direction = cdir(M_PI - 0.4));
+	STALL;
 }

@@ -81,19 +81,19 @@ void kurumi_slave_visual(Enemy *e, int t, bool render) {
 	}
 }
 
+TASK(kurumi_slave_visual, { cmplx *pos; }) {
+	PARTICLE(
+		.sprite = "smoothdot",
+		.pos = *ARGS.pos,
+		.color = RGBA(1, 1, 1, 0),
+		.draw_rule = Fade,
+		.timeout = 30,
+	);
+}
+
 void kurumi_slave_static_visual(Enemy *e, int t, bool render) {
 	if(render) {
 		return;
-	}
-
-	if(e->args[1]) {
-		PARTICLE(
-			.sprite = "smoothdot",
-			.pos = e->pos,
-			.color = RGBA(1, 1, 1, 0),
-			.draw_rule = Fade,
-			.timeout = 30,
-		);
 	}
 }
 

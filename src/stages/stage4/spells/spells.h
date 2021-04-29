@@ -16,7 +16,7 @@
 DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_walachia, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_dryfountain, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_redspike, BossAttack);
-void kurumi_aniwall(Boss*, int);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_aniwall, BossAttack);
 void kurumi_blowwall(Boss*, int);
 void kurumi_danmaku(Boss*, int);
 void kurumi_extra(Boss*, int);
