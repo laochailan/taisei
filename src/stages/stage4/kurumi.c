@@ -38,7 +38,7 @@ DEFINE_EXTERN_TASK(stage4_boss_nonspell_redirect) {
 	Projectile *p = TASK_BIND(ARGS.proj);
 	p->move = ARGS.new_move;
 	p->color.b *= -1;
-	play_sound_ex("redirect", 10, false);
+	play_sfx_ex("redirect", 10, false);
 	spawn_projectile_highlight_effect(p);
 }
 
@@ -81,14 +81,20 @@ void kurumi_slave_visual(Enemy *e, int t, bool render) {
 	}
 }
 
-TASK(kurumi_slave_visual, { cmplx *pos; }) {
-	PARTICLE(
-		.sprite = "smoothdot",
-		.pos = *ARGS.pos,
-		.color = RGBA(1, 1, 1, 0),
-		.draw_rule = Fade,
-		.timeout = 30,
-	);
+DEFINE_EXTERN_TASK(stage4_boss_slave_visual) {
+	for(;;) {
+		PARTICLE(
+			.sprite = "stain",
+			.pos = *ARGS.pos,
+			.color = RGBA(0.3, 0.0, 0.0, 0.0),
+			.draw_rule = Fade,
+			.angle = rng_angle(),
+			.scale = 0.4,
+			.timeout = 30,
+			.flags = PFLAG_REQUIREDPARTICLE,
+		);
+		WAIT(ARGS.interval);
+	}
 }
 
 void kurumi_slave_static_visual(Enemy *e, int t, bool render) {

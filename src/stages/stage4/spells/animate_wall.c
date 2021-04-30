@@ -14,6 +14,18 @@
 
 #include "global.h"
 
+typedef struct {
+	cmplx pos;
+	MoveParams move;
+} Mover; // make this global?
+
+TASK(mover_update, { Mover *m; }) {
+	for(;;) {
+		move_update(&ARGS.m->pos, &ARGS.m->move);
+		YIELD;
+	}
+}
+
 
 TASK(kurumi_aniwall_bullet, { cmplx pos; MoveParams move; }) {
 	Projectile *p = TASK_BIND(PROJECTILE(
@@ -29,8 +41,7 @@ TASK(kurumi_aniwall_bullet, { cmplx pos; MoveParams move; }) {
 	}
 }
 
-TASK(kurumi_aniwall_slave_move, { BoxedEnemy enemy; cmplx direction; }) {
-	Enemy *e = TASK_BIND(ARGS.enemy);
+TASK(kurumi_aniwall_slave_move, { Mover *m; cmplx direction; }) {
 
 	cmplx corners[] = {
 		0,
@@ -52,8 +63,8 @@ TASK(kurumi_aniwall_slave_move, { BoxedEnemy enemy; cmplx direction; }) {
 	}
 
 	for(;; next = (next + order + ARRAY_SIZE(corners)) % ARRAY_SIZE(corners)) {
-		cmplx d = corners[next] - e->pos;
-		e->move = move_linear(speed * cnormalize(d));
+		cmplx d = corners[next] - ARGS.m->pos;
+		ARGS.m->move = move_linear(speed * cnormalize(d));
 
 		int travel_time = cabs(d) / speed;
 		WAIT(travel_time);
@@ -62,26 +73,31 @@ TASK(kurumi_aniwall_slave_move, { BoxedEnemy enemy; cmplx direction; }) {
 
 
 TASK(kurumi_aniwall_slave, { cmplx pos; cmplx direction; }) {
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 1, kurumi_slave_static_visual, NULL, 0));
-	INVOKE_TASK_AFTER(&TASK_EVENTS(THIS_TASK)->finished, common_kill_enemy, ENT_BOX(e));
+	Mover m = {
+		.pos = ARGS.pos,
+		.move = move_accelerated(0, 0.2*ARGS.direction)
+	};
+	INVOKE_SUBTASK(mover_update, &m);
+	INVOKE_SUBTASK(stage4_boss_slave_visual, &m.pos, .interval = 1);
 
-	e->flags = EFLAGS_GHOST;
-	e->move = move_accelerated(0, 0.2*ARGS.direction);
-	create_lasercurve2c(ARGS.pos, 50, 80, RGBA(1.0, 0.7, 0.4, 0.0), las_accel, 0, e->move.acceleration);
+	create_lasercurve2c(ARGS.pos, 50, 80, RGBA(1.0, 0.4, 0.4, 0.0), las_accel, 0, m.move.acceleration);
 
-	int impact_time = sqrt(2 * fabs(creal(ARGS.pos - VIEWPORT_W*(creal(ARGS.direction)>0)) / creal(e->move.acceleration)));
+	real target_edge = creal(ARGS.direction) > 0 ? VIEWPORT_W : 0;
+	int impact_time = sqrt(2 * fabs(creal(ARGS.pos - target_edge) / creal(m.move.acceleration)));
+
 	WAIT(impact_time);
-	e->move = move_linear(10 * I * sign(cimag(ARGS.direction)));
+	
+	m.move = move_linear(10 * I * sign(cimag(ARGS.direction)));
 
-	INVOKE_SUBTASK(kurumi_aniwall_slave_move, ENT_BOX(e), ARGS.direction);
+	INVOKE_SUBTASK(kurumi_aniwall_slave_move, &m, ARGS.direction);
 
 	int step = difficulty_value(6, 5, 2, 1);
 	for(int i = 0;; i++, WAIT(step)) {
-		cmplx vel = sign(creal(ARGS.direction)) * I * cnormalize(e->move.velocity);
+		cmplx vel = sign(creal(ARGS.direction)) * I * cnormalize(m.move.velocity);
 		if(cimag(vel) > -0.1 || global.diff > D_Easy) {
 			play_sfx("shot1");
 			INVOKE_TASK(kurumi_aniwall_bullet,
-				.pos = e->pos + I * vel * 20 * rng_sreal(),
+				.pos = m.pos + I * vel * 20 * rng_sreal(),
 				.move = move_linear(vel)
 			);
 		}
