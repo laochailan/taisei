@@ -1,0 +1,589 @@
+name: "Release Builds"
+on:
+  push:
+    branches:
+      - v*.*-rc
+      - v*.*-beta
+    tags:
+      - v*.*
+      - v*.*-rc
+      - v*.*-beta
+
+env:
+  MESON_VERSION: '0.56.2'
+  EM_VERSION: '2.0.21'
+  EM_CACHE_FOLDER: 'emsdk'
+  TAISEI_NOPRELOAD: 0
+  TAISEI_PRELOAD_REQUIRED: 1
+
+jobs:
+  linux-release:
+    name: Linux (x64)
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Install Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install Tools
+      run: >
+        sudo apt update || true # debian cache is not atomic and can sometimes fail
+
+        sudo apt install -y -qq
+        build-essential
+        libsdl2-dev
+        libx11-dev
+        libwayland-dev
+        python3-docutils
+
+        pip install
+        meson==${{ env.MESON_VERSION }}
+        ninja
+        zstandard
+
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    - name: Set Build Env
+      id: vars
+      run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+
+    - name: Configure
+      run: >
+        meson setup build/linux
+        --native-file misc/ci/linux-x86_64-build-release.ini
+        --prefix=$(pwd)/build-release
+
+    - name: Build
+      run: |
+        meson compile -C build/linux --verbose
+        meson install -C build/linux
+
+    - name: Run Test
+      run: $(pwd)/build-release/bin/taisei -R $(pwd)/misc/ci/tests/test-replay.tsr
+      env:
+        TAISEI_NOPRELOAD: ${{ env.TAISEI_NOPRELOAD }}
+        TAISEI_PRELOAD_REQUIRED: ${{ env.TAISEI_PRELOAD_REQUIRED }}
+
+    - name: Package
+      run: ninja txz -C build/linux --verbose
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: linux-x86_64-${{ steps.vars.outputs.tag }}-txz
+        path: build/linux/Taisei-${{ steps.vars.outputs.tag }}-linux-x86_64.tar.xz
+        if-no-files-found: error
+
+    - name: Upload Log
+      uses: actions/upload-artifact@v2
+      with:
+        name: taisei_linux_release_log
+        path: build/linux/meson-logs/meson-log.txt
+        if-no-files-found: warn
+
+  macos-release-x64:
+    name: macOS (x64)
+    runs-on: macos-10.15
+    steps:
+    - name: Install Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install Tools
+      run: >
+        brew install
+        gcc
+        pkg-config
+        docutils
+        pygments
+        create-dmg
+
+        pip install
+        meson==${{ env.MESON_VERSION }}
+        ninja
+        zstandard
+
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with:
+        submodules: "recursive"
+
+    - name: Set Build Env
+      id: vars
+      run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+
+    - name: Configure
+      run: >
+        meson setup build/macos
+        --native-file misc/ci/macos-x86_64-build-release.ini
+        --prefix=$(pwd)/build-release
+
+    - name: Build
+      run: |
+        meson compile -C build/macos --verbose
+        meson install -C build/macos
+
+    - name: Run Test
+      run: $(pwd)/build-release/Taisei.app/Contents/MacOS/Taisei -R $(pwd)/misc/ci/tests/test-replay.tsr
+      env:
+        TAISEI_NOPRELOAD: ${{ env.TAISEI_NOPRELOAD }}
+        TAISEI_PRELOAD_REQUIRED: ${{ env.TAISEI_PRELOAD_REQUIRED }}
+
+    - name: Package
+      run: ninja dmg -C build/macos --verbose
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: macos-x86_64-${{ steps.vars.outputs.tag }}-dmg
+        path: build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-x86_64.dmg
+        if-no-files-found: error
+
+    - name: Upload Log
+      uses: actions/upload-artifact@v2
+      with:
+        name: taisei_macos_intel_release_log
+        path: build/macos/meson-logs/meson-log.txt
+        if-no-files-found: warn
+
+  macos-release-aarch64:
+    name: macOS (ARM64)
+    runs-on: macos-10.15
+    steps:
+    - name: Install Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install Tools
+      run: >
+        brew install
+        gcc
+        pkg-config
+        docutils
+        pygments
+        create-dmg
+
+        pip install
+        meson==${{ env.MESON_VERSION }}
+        ninja
+        zstandard
+
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with:
+        submodules: "recursive"
+
+    - name: Set Build Env
+      id: vars
+      run: |
+        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+        echo "SDKROOT=$(xcrun --show-sdk-path --sdk macosx11.1)" >> $GITHUB_ENV
+
+    - name: Configure
+      run: >
+        meson setup build/macos
+        --cross-file misc/ci/macos-aarch64-build-release.ini
+        --prefix=$(pwd)/build-release
+
+    - name: Build
+      run: |
+        meson compile -C build/macos --verbose
+        meson install -C build/macos
+
+    # TODO: if the macos-11.0 runner runs on Apple Silicon, uncomment this test
+    # - name: Run Test
+    #   run: $(pwd)/build-release/Taisei.app/Contents/MacOS/Taisei -R $(pwd)/misc/ci/tests/test-replay.tsr
+    #   env:
+    #     TAISEI_NOPRELOAD: ${{ env.TAISEI_NOPRELOAD }}
+    #     TAISEI_PRELOAD_REQUIRED: ${{ env.TAISEI_PRELOAD_REQUIRED }}
+
+    - name: Package
+      run: ninja dmg -C build/macos --verbose
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: macos-aarch64-${{ steps.vars.outputs.tag }}-dmg
+        path: build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-aarch64.dmg
+        if-no-files-found: error
+
+    - name: Upload Log
+      uses: actions/upload-artifact@v2
+      with:
+        name: taisei_macos_arm64_release_log
+        path: build/macos/meson-logs/meson-log.txt
+        if-no-files-found: warn
+
+  windows-release-x64:
+    name: Windows (x64)
+    runs-on: ubuntu-20.04
+    container: mstorsjo/llvm-mingw:20210423 # cross-compiler with mingw
+    steps:
+    - name: Install Tools
+      run: >
+        apt update || true
+
+        apt install -y -qq software-properties-common
+
+        add-apt-repository ppa:git-core/ppa -y
+
+        apt install -y -qq
+        python3-docutils
+        python3-pip
+        git
+        wget
+        nsis
+
+        pip3 install
+        meson==${{ env.MESON_VERSION }}
+        ninja
+        zstandard
+
+    # install 3.x on top of older Ubuntu manually as PPA does not exist
+    - name: Install NSIS 3.x
+      run: >
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-pluginapi_3.05-2_all.deb -P /tmp
+
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-common_3.05-2_all.deb -P /tmp
+
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis_3.05-2_amd64.deb -P /tmp
+
+        dpkg -i --force-all
+        /tmp/nsis-common_3.05-2_all.deb
+        /tmp/nsis_3.05-2_amd64.deb
+        /tmp/nsis-pluginapi_3.05-2_all.deb
+
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with:
+        submodules: "recursive"
+
+    - name: Checkout ANGLE DLLs
+      uses: actions/checkout@v2
+      with:
+        repository: taisei-project/angle-compiled
+        path: angle-compiled
+
+    - name: Set Build Env
+      id: vars
+      run: |
+        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+        tee misc/ci/windows-x64-ephemeral-release-ci.ini <<EOF >/dev/null
+        [constants]
+        libgles_path = '$(pwd)/angle-compiled/dll/x64/libGLESv2.dll'
+        libegl_path = '$(pwd)/angle-compiled/dll/x64/libEGL.dll'
+        EOF
+
+    - name: Configure
+      run: >
+        meson setup build/windows
+        --cross-file misc/ci/windows-llvm_mingw-x86_64-build-release.ini
+        --cross-file misc/ci/windows-x64-ephemeral-release-ci.ini
+        --prefix=$(pwd)/build-release
+
+    - name: Build
+      run: meson compile -C build/windows
+
+    - name: Package (EXE)
+      run: ninja nsis -C build/windows --verbose
+
+    - name: Upload Artifact (EXE)
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: windows-x86_64-${{ steps.vars.outputs.tag }}-setup-exe
+        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-setup-x86_64.exe
+        if-no-files-found: error
+
+    - name: Package (ZIP)
+      run: ninja zip -C build/windows --verbose
+
+    - name: Upload Artifact (ZIP)
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: windows-x86_64-${{ steps.vars.outputs.tag }}-zip
+        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-windows-x86_64.zip
+        if-no-files-found: error
+
+    - name: Upload Log
+      uses: actions/upload-artifact@v2
+      with:
+        name: taisei_windows_x64_release_log
+        path: build/windows/meson-logs/meson-log.txt
+        if-no-files-found: warn
+
+  windows-release-x86:
+    name: Windows (x86)
+    runs-on: ubuntu-20.04
+    container: mstorsjo/llvm-mingw:20210423 # cross-compiler with mingw
+    steps:
+    - name: Install Tools
+      run: >
+        apt update || true
+
+        apt install -y -qq software-properties-common
+
+        add-apt-repository ppa:git-core/ppa -y
+
+        apt install -y -qq
+        python3-docutils
+        python3-pip
+        git
+        wget
+        nsis
+
+        pip3 install
+        meson==${{ env.MESON_VERSION }}
+        ninja
+        zstandard
+
+    # install 3.x on top of older Ubuntu
+    # 3.x is only available for 20.04+, so --force-all the install (it still works but complains about libc versions)
+    - name: Install NSIS 3.x
+      run: >
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-pluginapi_3.05-2_all.deb -P /tmp
+
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-common_3.05-2_all.deb -P /tmp
+
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis_3.05-2_amd64.deb -P /tmp
+
+        dpkg -i --force-all
+        /tmp/nsis-common_3.05-2_all.deb
+        /tmp/nsis_3.05-2_amd64.deb
+        /tmp/nsis-pluginapi_3.05-2_all.deb
+
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with:
+        submodules: "recursive"
+
+    - name: Checkout ANGLE DLLs
+      uses: actions/checkout@v2
+      with:
+        repository: taisei-project/angle-compiled
+        path: angle-compiled
+
+    - name: Set Build Env
+      id: vars
+      run: |
+        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+        tee misc/ci/windows-x86-ephemeral-release-ci.ini <<EOF >/dev/null
+        [constants]
+        libgles_path = '$(pwd)/angle-compiled/dll/x86/libGLESv2.dll'
+        libegl_path = '$(pwd)/angle-compiled/dll/x86/libEGL.dll'
+        EOF
+
+    - name: Configure
+      run: >
+        meson setup build/windows
+        --cross-file misc/ci/windows-llvm_mingw-x86-build-release.ini
+        --cross-file misc/ci/windows-x86-ephemeral-release-ci.ini
+        --prefix=$(pwd)/build-release
+
+    - name: Build
+      run: meson compile -C build/windows
+
+    - name: Package (EXE)
+      run: ninja nsis -C build/windows --verbose
+
+    - name: Upload Artifact (EXE)
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: windows-x86-${{ steps.vars.outputs.tag }}-setup-exe
+        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-setup-x86.exe
+        if-no-files-found: error
+
+    - name: Package (ZIP)
+      run: ninja zip -C build/windows --verbose
+
+    - name: Upload Artifact (ZIP)
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: windows-x86-${{ steps.vars.outputs.tag }}-zip
+        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-windows-x86.zip
+        if-no-files-found: error
+
+    - name: Upload Log
+      uses: actions/upload-artifact@v2
+      with:
+        name: taisei_windows_x86_release_log
+        path: build/windows/meson-logs/meson-log.txt
+        if-no-files-found: warn
+
+  emscripten-release-build:
+    name: Emscripten Release
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install Tools
+      run: >
+        sudo apt update || true
+
+        sudo apt install -y -qq
+        python3-docutils
+        python3-pip
+        git
+
+        pip install
+        meson==${{ env.MESON_VERSION }}
+        ninja
+        zstandard
+
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    - name: Set Build Env
+      id: vars
+      run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+
+    - name: Fetch Cached Emscripten SDK
+      id: emsdk-cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ env.EM_CACHE_FOLDER }}
+        key: ${{ env.EM_VERSION }}-${{ runner.os }}
+
+    - name: Install Emscripten SDK
+      if: steps.emsdk-cache.outputs.cache-hit != 'true'
+      run: |
+        rm -rf ./${{ env.EM_CACHE_FOLDER }}/
+        git clone https://github.com/emscripten-core/emsdk.git
+        ${{ env.EM_CACHE_FOLDER }}/emsdk install ${{ env.EM_VERSION }}
+        ${{ env.EM_CACHE_FOLDER }}/emsdk activate ${{ env.EM_VERSION }}
+
+    - name: Verify Emscripten SDK
+      run: |
+        source ${{ env.EM_CACHE_FOLDER }}/emsdk_env.sh
+        emcc -v
+        tee misc/ci/emscripten-ephemeral-ci.ini <<EOF >/dev/null
+        [constants]
+        toolchain = '$(pwd)/${{ env.EM_CACHE_FOLDER }}/upstream/emscripten/'
+        EOF
+
+    - name: Configure
+      run: >
+        source ${{ env.EM_CACHE_FOLDER }}/emsdk_env.sh
+
+        meson setup build/emscripten
+        --cross-file misc/ci/emscripten-ephemeral-ci.ini
+        --cross-file misc/ci/emscripten-build-test-ci.ini
+        --prefix=$(pwd)/build-release
+
+        meson configure
+        -Dbuild.cpp_std=gnu++14
+        build/emscripten
+
+    - name: Build
+      run: |
+        source ${{ env.EM_CACHE_FOLDER }}/emsdk_env.sh
+        # TODO: fix race condition in SPIRV-Tools headers
+        meson compile -C build/emscripten --verbose || true
+        meson compile -C build/emscripten --verbose
+
+    - name: Package
+      run: |
+        source ${{ env.EM_CACHE_FOLDER }}/emsdk_env.sh
+        ninja txz -C build/emscripten --verbose
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: emscripten-wasm32-${{ steps.vars.outputs.tag }}-txz
+        path: build/emscripten/Taisei-${{ steps.vars.outputs.tag }}-emscripten-wasm32.tar.xz
+        if-no-files-found: error
+
+    - name: Upload Log
+      uses: actions/upload-artifact@v2
+      with:
+        name: taisei_emscripten_build_log
+        path: build/emscripten/meson-logs/meson-log.txt
+        if-no-files-found: warn
+
+  switch-release-build:
+    name: Switch (ARM64)
+    runs-on: ubuntu-20.04
+    container: taiseiproject/switch-toolkit:20210520
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    - name: Set Build Env
+      id: vars
+      run: |
+        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+        switch/crossfile.sh > misc/ci/switch-crossfile-ci.ini
+
+    - name: Configure
+      run: >
+        meson setup build/nx
+        --cross-file=misc/ci/switch-crossfile-ci.ini
+        --prefix=$(pwd)/build-release
+
+    - name: Build
+      run: meson compile -C build/nx --verbose
+
+    - name: Package
+      run: ninja zip -C build/nx --verbose
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: switch-aarch64-${{ steps.vars.outputs.tag }}-zip
+        path: build/nx/Taisei-${{ steps.vars.outputs.tag }}-switch-aarch64.zip
+        if-no-files-found: error
+
+    - name: Upload Log
+      uses: actions/upload-artifact@v2
+      with:
+        name: taisei_switch_release_log
+        path: build/nx/meson-logs/meson-log.txt
+        if-no-files-found: warn
+
+  source-release:
+    name: Source (Archive)
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    - name: Set Build Env
+      id: vars
+      run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+
+    - name: Compress Source
+      run: >
+        tar --exclude-vcs -cf - ./ |
+        xz -9e --threads=8 -c - >
+        Taisei-${{ steps.vars.outputs.tag }}-source.tar.xz
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: source-${{ steps.vars.outputs.tag }}-txz
+        path: Taisei-${{ steps.vars.outputs.tag }}-source.tar.xz
+        if-no-files-found: error

@@ -1,0 +1,181 @@
+name: "Publish Release Binaries"
+
+# manual run only for publishing
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        description: "Release tag to publish. (i.e: v1.4, v1.4.1, etc)"
+        default: "vx.y.z"
+      draftRelease:
+        description: "Is this a 'draft' release? (MUST ANSWER EITHER 'true' OR 'false' AS STRING INPUT)"
+        required: true
+        default: "false"
+      preRelease:
+        description: "Is this a 'prerelease'? (MUST ANSWER EITHER 'true' OR 'false' AS STRING INPUT)"
+        required: true
+        default: "false"
+    tags:
+      - v*.*
+      - v*.*-rc
+      - v*.*-beta
+
+jobs:
+  taisei-release:
+    name: "Publish Actions"
+    runs-on: ubuntu-20.04
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          ref: refs/tags/${{ github.event.inputs.tag }}
+
+      - name: Set Env Vars
+        run: |
+          echo "taisei_version=$(echo '${{ github.event.inputs.tag }}' | sed 's/^v//g')" >> $GITHUB_ENV
+          TAG=$(echo '${{ github.event.inputs.tag }}' | sed -E 's/-rc$|-beta$//g')
+          # adds default changelog, which is blank, in case you forget so it doesn't hold up the whole release
+          # edit it on the actual GH release afterwards and commit what you write to the repo after
+          if [ ! -f "changelogs/changelog-$TAG.md" ]; then
+            echo "taisei_changelog_tag=default" >> $GITHUB_ENV
+          else
+            echo "taisei_changelog_tag=$TAG" >> $GITHUB_ENV
+          fi
+
+      - name: Import GPG Key
+        uses: crazy-max/ghaction-import-gpg@v1
+        env:
+           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+           PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Download Taisei Release Artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: release.yml
+          workflow_conclusion: success
+          path: /opt
+
+      - name: Create sha256sums
+        run: >
+          sha256sum /opt/linux-x86_64-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-linux-x86_64.tar.xz
+          > /opt/linux-x86_64-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-linux-x86_64.tar.xz.sha256sum
+
+          sha256sum /opt/macos-x86_64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-x86_64.dmg
+          > /opt/macos-x86_64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-x86_64.dmg.sha256sum
+
+          sha256sum /opt/macos-aarch64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-aarch64.dmg
+          > /opt/macos-aarch64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-aarch64.dmg.sha256sum
+
+          sha256sum /opt/windows-x86_64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86_64.zip
+          > /opt/windows-x86_64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86_64.zip.sha256sum
+
+          sha256sum /opt/windows-x86_64-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86_64.exe
+          > /opt/windows-x86_64-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86_64.exe.sha256sum
+
+          sha256sum /opt/windows-x86-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86.zip
+          > /opt/windows-x86-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86.zip.sha256sum
+
+          sha256sum /opt/windows-x86-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86.exe
+          > /opt/windows-x86-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86.exe.sha256sum
+
+          sha256sum /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz
+          > /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz.sha256sum
+
+          sha256sum /opt/switch-aarch64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-switch-aarch64.zip
+          > /opt/switch-aarch64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-switch-aarch64.zip.sha256sum
+
+          sha256sum /opt/source-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-source.tar.xz
+          > /opt/source-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-source.tar.xz.sha256sum
+
+      - name: Create GPG Signatures
+        run: >
+          gpg --output /opt/linux-x86_64-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-linux-x86_64.tar.xz.sig
+          --detach-sig /opt/linux-x86_64-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-linux-x86_64.tar.xz
+
+          gpg --output /opt/macos-x86_64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-x86_64.dmg.sig
+          --detach-sig /opt/macos-x86_64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-x86_64.dmg
+
+          gpg --output /opt/macos-aarch64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-aarch64.dmg.sig
+          --detach-sig /opt/macos-aarch64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-aarch64.dmg
+
+          gpg --output /opt/windows-x86_64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86_64.zip.sig
+          --detach-sig /opt/windows-x86_64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86_64.zip
+
+          gpg --output /opt/windows-x86_64-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86_64.exe.sig
+          --detach-sig /opt/windows-x86_64-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86_64.exe
+
+          gpg --output /opt/windows-x86-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86.zip.sig
+          --detach-sig /opt/windows-x86-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86.zip
+
+          gpg --output /opt/windows-x86-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86.exe.sig
+          --detach-sig /opt/windows-x86-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86.exe
+
+          gpg --output /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz.sig
+          --detach-sig /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz
+
+          gpg --output /opt/switch-aarch64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-switch-aarch64.zip.sig
+          --detach-sig /opt/switch-aarch64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-switch-aarch64.zip
+
+          gpg --output /opt/source-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-source.tar.xz.sig
+          --detach-sig /opt/source-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-source.tar.xz
+
+      - name: Release Taisei Packages
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          draft: ${{ github.event.inputs.draftRelease }}
+          prerelease: ${{ github.event.inputs.preRelease }}
+          body_path: changelogs/changelog-${{ env.taisei_changelog_tag }}.md
+          name: ${{ github.event.inputs.tag }}
+          tag_name: ${{ github.event.inputs.tag }}
+          files: |
+            /opt/linux-x86_64-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-linux-x86_64.tar.xz
+            /opt/linux-x86_64-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-linux-x86_64.tar.xz.sha256sum
+            /opt/linux-x86_64-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-linux-x86_64.tar.xz.sig
+            /opt/macos-x86_64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-x86_64.dmg
+            /opt/macos-x86_64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-x86_64.dmg.sha256sum
+            /opt/macos-x86_64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-x86_64.dmg.sig
+            /opt/macos-aarch64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-aarch64.dmg
+            /opt/macos-aarch64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-aarch64.dmg.sha256sum
+            /opt/macos-aarch64-${{ env.taisei_version }}-dmg/Taisei-${{ env.taisei_version }}-macOS-aarch64.dmg.sig
+            /opt/windows-x86_64-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86_64.exe
+            /opt/windows-x86_64-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86_64.exe.sha256sum
+            /opt/windows-x86_64-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86_64.exe.sig
+            /opt/windows-x86_64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86_64.zip
+            /opt/windows-x86_64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86_64.zip.sha256sum
+            /opt/windows-x86_64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86_64.zip.sig
+            /opt/windows-x86-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86.zip
+            /opt/windows-x86-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86.zip.sha256sum
+            /opt/windows-x86-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-windows-x86.zip.sig
+            /opt/windows-x86-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86.exe
+            /opt/windows-x86-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86.exe.sha256sum
+            /opt/windows-x86-${{ env.taisei_version }}-setup-exe/Taisei-${{ env.taisei_version }}-setup-x86.exe.sig
+            /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz
+            /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz.sha256sum
+            /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz.sig
+            /opt/switch-aarch64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-switch-aarch64.zip
+            /opt/switch-aarch64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-switch-aarch64.zip.sha256sum
+            /opt/switch-aarch64-${{ env.taisei_version }}-zip/Taisei-${{ env.taisei_version }}-switch-aarch64.zip.sig
+            /opt/source-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-source.tar.xz
+            /opt/source-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-source.tar.xz.sha256sum
+            /opt/source-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-source.tar.xz.sig
+
+      # TODO: needs EMSCRIPTEN_RELEASE_DEPLOY_KEY as a project secret to publish to website repo
+      # - name: Untar Emscripten
+      #   run: >
+      #     tar -xpf /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz
+      #     -C /opt/emscripten-wasm32-${{ env.taisei_version }}-txz
+
+      # - name: Deploy to GitHub Pages (Stable)
+      #   uses: JamesIves/github-pages-deploy-action@releases/v4
+      #   continue-on-error: true
+      #   with:
+      #     branch: live
+      #     target-folder: ./play/stable/
+      #     folder: /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32
+      #     repository-name: taisei-project/taisei-website-new
+      #     commit-message: "${{ github.repository }}@${{ github.sha }} - publishing stable build ${{ env.taisei_version }}"
+      #     ssh-key: ${{ secrets.EMSCRIPTEN_RELEASE_DEPLOY_KEY }}
