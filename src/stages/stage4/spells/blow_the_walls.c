@@ -9,105 +9,84 @@
 #include "taisei.h"
 
 #include "spells.h"
+#include "common_tasks.h"
 
 #include "global.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
+TASK(kurumi_blowwall_exploder, { cmplx pos; cmplx acceleration; }) {
 
-static int blowwall_slave(Enemy *e, int t) {
-	float re, im;
+	cmplx pos = ARGS.pos;
+	for(int t = 0; pos == cwclamp(pos, 0, VIEWPORT_W + I * VIEWPORT_H); t++, YIELD)  {
+		pos += ARGS.acceleration * t;
+	}
 
-	if(t < 0)
-		return 1;
+	float f;
+	ProjPrototype *type;
 
-	e->pos += e->args[0]*t;
+	int count = difficulty_value(60, 100, 140, 180);
 
-	if(creal(e->pos) <= 0)
-		e->pos = I*cimag(e->pos);
-	if(creal(e->pos) >= VIEWPORT_W)
-		e->pos = VIEWPORT_W + I*cimag(e->pos);
-	if(cimag(e->pos) <= 0)
-		e->pos = creal(e->pos);
-	if(cimag(e->pos) >= VIEWPORT_H)
-		e->pos = creal(e->pos) + I*VIEWPORT_H;
+	for(int i = 0; i < count; i++) {
+		f = rng_real();
 
-	re = creal(e->pos);
-	im = cimag(e->pos);
-
-	if(re <= 0 || im <= 0 || re >= VIEWPORT_W || im >= VIEWPORT_H) {
-		int i, c;
-		float f;
-		ProjPrototype *type;
-
-		c = 20 + global.diff*40;
-
-		for(i = 0; i < c; i++) {
-			f = frand();
-
-			if(f < 0.3) {
-				type = pp_soul;
-			} else if(f < 0.6) {
-				type = pp_bigball;
-			} else {
-				type = pp_plainball;
-			}
-
-			PROJECTILE(
-				.proto = type,
-				.pos = e->pos,
-				.color = RGBA(1.0, 0.1, 0.1, 0.0),
-				.rule = asymptotic,
-				.args = { (1+3*f)*cexp(2.0*I*M_PI*frand()), 4 },
-			);
+		if(f < 0.3) {
+			type = pp_soul;
+		} else if(f < 0.6) {
+			type = pp_bigball;
+		} else {
+			type = pp_plainball;
 		}
 
-		play_sound("shot_special1");
-		return ACTION_DESTROY;
+		PROJECTILE(
+			.proto = type,
+			.pos = pos,
+			.color = RGBA(1.0, 0.1, 0.1, 0.0),
+			.move = move_asymptotic_simple((1 + 3 * f) * rng_dir(), 4)
+		);
 	}
 
-	return 1;
+	play_sfx("shot_special1");
 }
 
-static void bwlaser(Boss *b, float arg, int slave) {
-	create_lasercurve2c(b->pos, 50, 100, RGBA(1.0, 0.5+0.3*slave, 0.5+0.3*slave, 0.0), las_accel, 0, (0.1+0.1*slave)*cexp(I*arg));
+static void bwlaser(Boss *b, cmplx direction, bool explode) {
+	cmplx acceleration = 0.1 * (1 + explode) * direction;
+	create_lasercurve2c(b->pos, 50, 100, RGBA(1.0, 0.3, 0.3, 0.0), las_accel, 0, acceleration);
 
-	if(slave) {
-		play_sound("laser1");
-		create_enemy1c(b->pos, ENEMY_IMMUNE, NULL, blowwall_slave, 0.2*cexp(I*arg));
+	if(explode) {
+		play_sfx("laser1");
+
+		INVOKE_SUBTASK(kurumi_blowwall_exploder, b->pos, acceleration);
 	} else {
 		// FIXME: needs a better sound
-		play_sound("shot2");
-		play_sound("shot_special1");
+		play_sfx("shot_special1");
+		play_sfx("redirect");
 	}
 }
 
-void kurumi_blowwall(Boss *b, int time) {
-	int t = time % 600;
-	TIMER(&t);
+DEFINE_EXTERN_TASK(kurumi_blowwall) {
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
 
-	if(time == EVENT_DEATH)
-		enemy_kill_all(&global.enemies);
+	b->move = move_towards(BOSS_DEFAULT_GO_POS, 0.04);
 
-	if(time < 0) {
-		return;
-	}
-
-	GO_TO(b, BOSS_DEFAULT_GO_POS, 0.04)
-
-	AT(0) {
+	INVOKE_SUBTASK(common_charge, b->pos, RGBA(1, 0.3, 0.2, 0), 50, .sound = COMMON_CHARGE_SOUNDS);
+	for(;;) {
 		aniplayer_queue(&b->ani,"muda",0);
+		WAIT(50);
+		bwlaser(b, cdir(0.4), true);
+
+		WAIT(50);
+		bwlaser(b, cdir(M_PI-0.4), true);
+		WAIT(100);
+		for(int i = 0; i < 2; i++) {
+			bwlaser(b, cdir(-M_PI * rng_real()), true);
+			WAIT(50);
+		}
+		play_sfx("laser1");
+		for(int i = 0; i < 20; i++) {
+			bwlaser(b, cdir(M_PI / 10 * i), false);
+			WAIT(10);
+		}
+		INVOKE_SUBTASK(common_charge, b->pos, RGBA(1, 0.3, 0.2, 0), 100, .sound = COMMON_CHARGE_SOUNDS);
+		WAIT(50);
 	}
-
-	AT(50)
-		bwlaser(b, 0.4, 1);
-
-	AT(100)
-		bwlaser(b, M_PI-0.4, 1);
-
-	FROM_TO(200, 300, 50)
-		bwlaser(b, -M_PI*frand(), 1);
-
-	FROM_TO(300, 500, 10)
-		bwlaser(b, M_PI/10*_i, 0);
-
 }

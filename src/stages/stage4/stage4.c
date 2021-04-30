@@ -51,7 +51,7 @@ struct stage4_spells_s stage4_spells = {
 		},
 		.blow_the_walls = {
 			{12, 13, 14, 15}, AT_Spellcard, "Power Sign “Blow the Walls”", 60, 55000,
-			kurumi_blowwall, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_blowwall)
 		},
 		.bloody_danmaku = {
 			{18, 19, 16, 17}, AT_Spellcard, "Predation “Vampiric Vapor”", 80, 60000,
