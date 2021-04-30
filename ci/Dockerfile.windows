@@ -1,0 +1,40 @@
+##############
+# base image #
+##############
+
+FROM mstorsjo/llvm-mingw:20210423 as taisei_builder
+
+ENV LANG C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update \
+    && apt install -y -qq \
+	build-essential \
+	python3-docutils \
+	python3-pip \
+	zlibc
+
+RUN pip3 install meson==0.55.3 ninja zstandard
+
+# install NSIS 3.x for better compatibility
+# it still works even tho it's from a later version
+RUN wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-pluginapi_3.05-2_all.deb -P /tmp \
+    && wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-common_3.05-2_all.deb -P /tmp \
+	&& wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis_3.05-2_amd64.deb -P /tmp \
+	&& dpkg -i --force-all /tmp/nsis-common_3.05-2_all.deb /tmp/nsis_3.05-2_amd64.deb /tmp/nsis-pluginapi_3.05-2_all.deb
+
+##################
+# compiler image #
+##################
+
+FROM taisei_builder AS taisei_compile
+
+RUN mkdir -p /usr/src/taisei /opt/taisei-exe
+
+WORKDIR /usr/src/taisei
+
+COPY . .
+
+ENV TAISEI_PREFIX=/opt/taisei-exe
+
+RUN make submodule-update windows/setup windows/compile windows/installer

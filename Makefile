@@ -105,37 +105,47 @@ linux/tar:
 ###########
 
 windows/setup: setup/check/prefix
-	meson setup build/ \
-		--cross-file scripts/llvm-mingw-x86_64 \
-		-Ddeprecation_warnings=no-error \
+	meson setup build/windows \
+		--cross-file ci/windows-llvm_mingw-x86_64-build-release.ini \
 		$(PREFIX)
 
+windows/compile:
+	meson compile -C build/windows
+
 windows/zip:
-	meson compile zip -C build/
+	meson compile zip -C build/windows
 
 windows/installer:
-	meson compile nsis -C build/
+	meson compile nsis -C build/windows
 
-windows/all: clean setup-windows compile install
+windows/all: clean windows/setup windows/installer
 
 #########
 # macos #
 #########
 
 macos/setup:
-	meson configure build/ \
-		-Dmacos_bundle=true
+	meson setup build/mac \
+		--native-file ci/macos-x86_64-build-release.ini
 
 macos/dmg:
-	meson compile dmg -C build/
+	meson compile dmg -C build/mac
 
-macos/all: setup/macos install/macos
+macos/install:
+	meson install -C build/mac
 
 ##########
 # switch #
 ##########
 
-# TODO:
+switch/setup:
+	mkdir -p build/nx
+	switch/crossfile.sh > build/nx/crossfile.txt
+	meson setup build/nx \
+		--cross-file="build/nx/crossfile.txt"
+
+switch:
+	meson compile -C build/nx
 
 ##########
 # docker #
@@ -143,18 +153,11 @@ macos/all: setup/macos install/macos
 
 docker/angle:
 	@echo "To build this on Windows, you must have '"storage-opt": ["size=130GB"]' in your daemon.json for Docker"
-	docker build ./scripts/docker/ -m 12GB -t taisei-angle-builder -f "scripts/docker/Dockerfile.angle" --build-arg ANGLE_VERSION=4484 # build the image, this can take 2 hours so please wait warmly
+	docker build ci/ -m 12GB -t taisei-angle-builder -f "ci/Dockerfile.angle" --build-arg ANGLE_VERSION=4484 # build the image, this can take 2 hours so please wait warmly
 	docker run -m 4GB --name taisei-temp taisei-angle-builder:latest # start up a container that dies immediately because of no entrypoint
 	docker cp taisei-temp:"C:\\GOOGLE\\angle\\out\\Release\\libGLESv2.dll" ./ # copy locally
 	docker cp taisei-temp:"C:\\GOOGLE\\angle\\out\\Release\\libEGL.dll" ./ # copy locally
 	docker rm taisei-temp # remove unneeded container (the image is still available as taisei-angle-builder)
 
-####################
-# internal helpers #
-####################
-
-# not intended to be run on their own, meant for CI
-
-_docker/windows/zip:
-	zip -r /opt/taisei-exe.zip /opt/taisei-exe
-
+docker/windows:
+	docker build . -m 8GB -t taisei-windows-builder -f "ci/Dockerfile.windows"

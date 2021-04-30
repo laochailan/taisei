@@ -1,5 +1,12 @@
 # escape=`
 
+# this dockerfile is somewhat cursed
+# the idea was to make a way to compile ANGLE binaries for Windows in a repeatable way
+# unfortunately it requires a Windows host (bare metal, VM) that runs Docker in Windows mode
+# but at that point, why not compile it against the VM itself?
+# either way, it *does* work, so if you need this for a CI pipeline or whatever, here it is
+# and yes, it DOES require VS2019, the Windows SDK, and the Windows Driver Kit - all three are *mandatory*
+
 ########################################
 # vscode image: install MS build tools #
 ########################################
@@ -67,10 +74,10 @@ RUN Start-Process -FilePath C:\TEMP\wdksetup.exe -ArgumentList @('/q', '/noresta
 # switch to CMD for this as VS2019 is picky
 SHELL ["cmd", "/S", "/C"]
 
-COPY Install.cmd C:\TEMP\
+COPY Windows-Install-Helper.cmd C:\TEMP\
 
 # vs2019 community
-RUN C:\TEMP\Install.cmd C:\TEMP\vs_community.exe --quiet --wait --norestart --nocache `
+RUN C:\TEMP\Windows-Install-Helper.cmd C:\TEMP\vs_community.exe --quiet --wait --norestart --nocache `
 	--channelUri C:\TEMP\VisualStudio.chman `
 	--installChannelUri C:\TEMP\VisualStudio.chman `
 	--add Microsoft.VisualStudio.Workload.AzureBuildTools `
