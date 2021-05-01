@@ -33,7 +33,7 @@ TASK(ball_shoot, { BoxedBoss boss; }) {
 		aniplayer_queue(&boss->ani, "main", 0);
 
 		int count = difficulty_value(11, 12, 13, 14);
-		cmplx n = cdir(0.1 - 0.2 * rng_real()) * cnormalize(global.plr.pos - boss->pos);
+		cmplx n = cdir(0.1 * rng_sreal()) * cnormalize(global.plr.pos - boss->pos);
 		for(int i = 0; i < count; i++) {
 			PROJECTILE(
 				.proto = pp_ball,

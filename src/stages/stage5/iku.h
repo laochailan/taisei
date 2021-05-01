@@ -38,8 +38,8 @@ DECLARE_EXTERN_TASK(iku_slave_move, {
 
 DECLARE_EXTERN_TASK(iku_induction_bullet, {
 	BoxedProjectile p;
-	cmplx m1;
-	cmplx m2;
+	cmplx radial_vel;
+	cmplx angular_vel;
 	int mode;
 });
 

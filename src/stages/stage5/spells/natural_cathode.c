@@ -43,8 +43,8 @@ DEFINE_EXTERN_TASK(stage5_spell_natural_cathode) {
 
 			INVOKE_TASK(iku_induction_bullet, {
 				.p = ENT_BOX(p),
-				.m1 = speedmod * 2 * cdir(M_TAU * rng_real()),
-				.m2 = speedmod * 0.01 * I * (1 - 2 * (x & 1)),
+				.radial_vel = speedmod * 2 * cdir(M_TAU * rng_real()),
+				.angular_vel = speedmod * 0.01 * I * (1 - 2 * (x & 1)),
 				.mode = 1,
 			});
 

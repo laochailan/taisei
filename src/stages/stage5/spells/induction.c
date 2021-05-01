@@ -20,8 +20,8 @@ DEFINE_EXTERN_TASK(stage5_spell_induction) {
 	aniplayer_queue(&boss->ani, "dashdown_wait", 0);
 
 	for(int x = 0;; x++, WAIT(8)) {
+		play_sfx_loop("shot1_loop");
 		play_sfx("redirect");
-		play_sfx("shot1_loop");
 
 		int c = 6;
 		int c2 = 6 - (global.diff/4);
@@ -43,8 +43,8 @@ DEFINE_EXTERN_TASK(stage5_spell_induction) {
 
 				INVOKE_TASK(iku_induction_bullet, {
 					.p = ENT_BOX(p),
-					.m1 = 2 * cdir(M_TAU / c * i + M_PI/2 + shift),
-					.m2 = (0.01 + 0.001 * difficulty_value(1, 2, 3, 4)) * I * (1 - 2 * j) + a,
+					.radial_vel = 2 * cdir(M_TAU / c * i + M_PI/2 + shift),
+					.angular_vel = (0.01 + 0.001 * difficulty_value(1, 2, 3, 4)) * I * (1 - 2 * j) + a,
 				});
 			}
 		}

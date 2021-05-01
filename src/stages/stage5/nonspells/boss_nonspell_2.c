@@ -42,6 +42,7 @@ TASK(ball_shoot, { BoxedBoss boss; }) {
 				.move = move_linear(cdir(0.1 * x))
 			);
 		}
+		play_sfx_loop("shot1_loop");
 	}
 }
 

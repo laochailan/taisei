@@ -28,12 +28,12 @@ TASK(lightningball_particle, { BoxedBoss boss; }) {
 	}
 }
 
-TASK(zigzag_move, { BoxedProjectile p; cmplx move_arg; }) {
+TASK(zigzag_move, { BoxedProjectile p; cmplx velocity; }) {
 	Projectile *p = TASK_BIND(ARGS.p);
 
 	for(int time = 0;; time++, YIELD) {
-		// TODO: make this better
-		p->pos = p->pos0 + (abs(((2 * time) % 50) - 50 / 2) * I + time) * 2 * ARGS.move_arg;
+		int zigtime = 50;
+		p->pos = p->pos0 + (abs(((2 * time) % zigtime) - zigtime / 2) * I + time) * 2 * ARGS.velocity;
 
 		if(time % 2 == 0) {
 			PARTICLE(
@@ -49,31 +49,30 @@ TASK(zigzag_move, { BoxedProjectile p; cmplx move_arg; }) {
 
 TASK(zigzag_shoot, { BoxedBoss boss; } ) {
 	Boss *boss = TASK_BIND(ARGS.boss);
-	for(int time = 0;; time++, YIELD) {
-		if(time > 0 && !(time % 100)) {
-			int count = difficulty_value(7, 7, 7, 9);
-			for(int i = 0; i < count; i++) {
-				Projectile *p = PROJECTILE(
-					.proto = pp_bigball,
-					.pos = boss->pos,
-					.color = RGBA(0.5, 0.1, 1.0, 0.0),
-				);
-				INVOKE_SUBTASK(zigzag_move, ENT_BOX(p), cdir(M_TAU / count * i) * cnormalize(global.plr.pos - boss->pos));
-			}
-			play_sfx("redirect");
-			play_sfx("shot_special1");
+	for(int time = 0;;) {
+		time += WAIT(100);
+		int count = difficulty_value(7, 7, 7, 9);
+		for(int i = 0; i < count; i++) {
+			Projectile *p = PROJECTILE(
+				.proto = pp_bigball,
+				.pos = boss->pos,
+				.color = RGBA(0.5, 0.1, 1.0, 0.0),
+			);
+			INVOKE_TASK(zigzag_move, ENT_BOX(p), cdir(M_TAU / count * i) * cnormalize(global.plr.pos - boss->pos));
 		}
+		play_sfx("redirect");
+		play_sfx("shot_special1");
 	}
 }
 
-TASK(lightning_slave_move, { BoxedEnemy e; cmplx move_arg; }) {
+TASK(lightning_slave_move, { BoxedEnemy e; cmplx velocity; }) {
 	Enemy *e = TASK_BIND(ARGS.e);
-	cmplx move = ARGS.move_arg;
+	cmplx velocity = ARGS.velocity;
 
 	for(int time = 0;; time++, YIELD) {
-		e->move = move_linear(move);
+		e->move = move_linear(velocity);
 		if(time%20 == 0) {
-			move *= cdir(0.25 + 0.25 * rng_real() * M_PI);
+			velocity *= cdir(0.25 + 0.25 * rng_real() * M_PI);
 		}
 	}
 }
@@ -84,7 +83,7 @@ TASK(lightning_slave, { cmplx pos; cmplx move_arg; }) {
 
 	INVOKE_TASK(lightning_slave_move, ENT_BOX(e), ARGS.move_arg);
 
-	for(int x = 0; x < 67; x += WAIT(3)) {
+	for(int x = 0; x < 67; x++, WAIT(3)) {
 		if(cabs(e->pos - global.plr.pos) > 60) {
 			Color *clr = RGBA(1 - 1 / (1 + 0.01 * x), 0.5 - 0.01 * x, 1, 0);
 
@@ -99,7 +98,7 @@ TASK(lightning_slave, { cmplx pos; cmplx move_arg; }) {
 			if(projectile_in_viewport(p)) {
 				for(int i = 0; i < 3; ++i) {
 					RNG_ARRAY(rand, 2);
-					iku_lightning_particle(p->pos + 5 * vrng_sreal(rand[0]) * cdir(M_TAU * vrng_sreal(rand[1])));
+					iku_lightning_particle(p->pos + 5 * vrng_sreal(rand[0]) * vrng_dir(rand[1]));
 				}
 				play_sfx_ex("shot3", 0, false);
 			}

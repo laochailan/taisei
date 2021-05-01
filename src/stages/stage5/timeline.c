@@ -38,7 +38,7 @@ TASK(magnetto_swirl_shoot, {
 	int bullets = difficulty_value(1, 2, 2, 2);
 	int bullet_dir = difficulty_value(0, 0, 1, 0);
 	int bullet_dir2 = difficulty_value(1, 1, 1, 0);
-	for(int t = 0; t <= 180; t += WAIT(interval)) {
+	for(int t = 0; t <= 180 / interval; t++, WAIT(interval)) {
 		for(int i = 0; i < bullets; i++) {
 			cmplx dir = cdir(M_PI * i + M_PI / 8 * sin(2 * t / 70.0 * M_PI)) * cnormalize(ARGS.move_to - e->pos);
 			PROJECTILE(
@@ -60,8 +60,8 @@ TASK(magnetto_swirl_move, {
 	cmplx swoop = 2.75 * cdir(M_PI/2);
 	for(int t = 0; t <= 140; t++, YIELD) {
 		if(!(t % 5)) {
-			cmplx offset = rng_dir();
-			iku_lightning_particle(e->pos + 15 * rng_real() * offset);
+			RNG_ARRAY(rand, 2);
+			iku_lightning_particle(e->pos + 15 * vrng_real(rand[0]) * vrng_dir(rand[1]));
 		}
 		e->move = move_towards(ARGS.move_to, pow(t / 300.0, 3));
 		e->move.acceleration = cnormalize(ARGS.move_to - e->pos) * swoop;
@@ -83,15 +83,16 @@ TASK(magnetto_swirl, {
 	play_sfx("redirect");
 	play_sfx_delayed("redirect", 0, false, 180);
 
+	// FIXME: for some reason, this move doesn't work anymore
 	INVOKE_TASK(magnetto_swirl_move, {
 		.e = ENT_BOX(e),
 		.move_to = ARGS.move_to
 	});
+
 	INVOKE_TASK(magnetto_swirl_shoot, {
 		.e = ENT_BOX(e),
 		.move_to = ARGS.move_to
 	});
-
 }
 
 TASK(magnetto_swirls, {
@@ -267,20 +268,19 @@ TASK(lightburst_fairy_2, {
 	real count = difficulty_value(6, 7, 8, 9);
 	int difficulty = difficulty_value(1, 2, 3, 4);
 	WAIT(70);
-	for(int x = 0; x < 70; x++) {
-		play_sfx("shot1_loop");
+	for(int x = 0; x < 30; x++, WAIT(5)) {
+		play_sfx_loop("shot1_loop");
 		for(int i = 0; i < count; i++) {
-			cmplx n = cnormalize(global.plr.pos - e->pos) * cdir(i * M_TAU / count);
+			cmplx n = cnormalize(global.plr.pos - e->pos) * cdir(M_TAU / count * i);
+			RNG_ARRAY(rand, 2);
 			PROJECTILE(
 				.proto = pp_bigball,
 				.pos = e->pos + 50 * n * cdir(-1.0 * x * difficulty),
 				.color = RGB(0.3, 0, 0.7 + 0.3 * (i % 2)),
-				.move = move_asymptotic_simple(2.5 * n + 0.25 * difficulty * rng_sreal() * rng_dir(), 3),
+				.move = move_asymptotic_simple(2.5 * n + 0.25 * difficulty * vrng_sreal(rand[0]) * vrng_dir(rand[1]), 3),
 			);
-			play_sfx("shot1_loop");
 		}
 		play_sfx("shot2");
-		WAIT(5);
 	}
 }
 
@@ -299,17 +299,17 @@ TASK(lightburst_fairy_1, {
 
 	real count = difficulty_value(6, 7, 8, 9);
 	int difficulty = difficulty_value(1, 2, 3, 4);
-	for(int x = WAIT(20); x < 300; x += WAIT(5)) {
-		play_sfx("shot1_loop");
+	WAIT(20);
+	for(int x = 0; x < 50; x++, WAIT(5)) {
+		play_sfx_loop("shot1_loop");
 		for(int i = 0; i < count; i++) {
-			cmplx n = cnormalize(global.plr.pos - e->pos) * cdir(i * M_TAU / count);
+			cmplx n = cnormalize(global.plr.pos - e->pos) * cdir(M_TAU / count * i);
 			PROJECTILE(
 				.proto = pp_ball,
 				.pos = e->pos + 50 * n * cdir(-0.4 * x * difficulty),
 				.color = RGB(0.3, 0, 0.7),
 				.move = move_asymptotic_simple(3 * n, 3),
 			);
-			play_sfx("shot1_loop");
 		}
 		play_sfx("shot2");
 	}
@@ -362,11 +362,12 @@ TASK(laser_fairy, {
 
 	int delay = difficulty_value(6, 5, 4, 3) + ARGS.reduction;
 	int amount = 700 / delay;
-	int difficulty = difficulty_value(1, 2, 3, 4);
+	int angle_mod = difficulty_value(1, 2, 3, 4);
+	int dir_mod = difficulty_value(9, 8, 7, 6);
 
 	for(int x = 0; x < amount; x++) {
-		cmplx n = cnormalize(global.plr.pos - e->pos) * cdir((0.2 - 0.02 * difficulty) * x);
-		real fac = (0.5 + 0.2 * difficulty);
+		cmplx n = cnormalize(global.plr.pos - e->pos) * cdir((0.02 * dir_mod) * x);
+		real fac = (0.5 + 0.2 * angle_mod);
 
 		// TODO: is this the correct "modern" way of invoking lasers?
 		create_lasercurve2c(e->pos, 100, 300, RGBA(0.7, 0.3, 1, 0), las_accel, fac * 4 * n, fac * 0.05 * n);
@@ -482,7 +483,7 @@ TASK(limiter_fairy, {
 			);
 		}
 
-		play_sfx("shot1_loop");
+		play_sfx_loop("shot1_loop");
 		WAIT(3);
 	}
 }
@@ -514,11 +515,12 @@ TASK(miner_swirl, {
 	int difficulty = difficulty_value(8, 6, 4, 3);
 
 	for(int x = 0; x < 600; x++) {
+		RNG_ARRAY(rand, 2);
 		PROJECTILE(
 			.proto = pp_rice,
-			.pos = e->pos + 20 * cdir(M_TAU * rng_real()),
+			.pos = e->pos + 20 * vrng_dir(rand[0]),
 			.color = RGB(0, 0, 255),
-			.move = move_linear(cdir(M_TAU  * rng_real())),
+			.move = move_linear(vrng_dir(rand[1])),
 		);
 		play_sfx_ex("shot3", 0, false);
 		WAIT(difficulty);

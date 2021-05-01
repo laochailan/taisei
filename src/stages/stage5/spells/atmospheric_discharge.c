@@ -31,19 +31,20 @@ TASK(cloud_shoot, NO_ARGS) {
 }
 
 TASK(ball_shoot, NO_ARGS) {
-	int difficulty = difficulty_value(1, 2, 3, 4);
+	int shot_angle = difficulty_value(140, 160, 180, 200);
+	int shot_count = difficulty_value(7, 8, 9, 10);
+	int shot_accel = difficulty_value(5, 6, 7, 8);
 	for(int x = 0;; x += WAIT(difficulty_value(19, 17, 15, 13))) {
 		RNG_ARRAY(rand, 4);
 		cmplx p1 = VIEWPORT_W * vrng_real(rand[0]) + VIEWPORT_H/2 * I * vrng_real(rand[1]);
-		cmplx p2 = p1 + (120 + 20 * difficulty) * cdir(0.5 - vrng_real(rand[2])) * (1 - 2 * (vrng_real(rand[3]) > 0.5));
+		cmplx p2 = p1 + shot_angle * cdir(0.5 * vrng_sreal(rand[2])) * (1 - 2 * (vrng_chance(rand[3], 0.5)));
 
-		int count = difficulty_value(7, 8, 9, 10);
-		for(int i = -count * 0.5; i <= count * 0.5; i++) {
+		for(int i = -shot_count * 0.5; i <= shot_count * 0.5; i++) {
 			PROJECTILE(
 				.proto = pp_ball,
-				.pos = p1 + (p2 - p1) / count * i,
+				.pos = p1 + (p2 - p1) / shot_count * i,
 				.color = RGBA(1 - 1 / (1 + fabs(0.1 * i)), 0.5 - 0.1 * abs(i), 1, 0),
-				.move = move_accelerated(0, (0.004 + 0.001 * difficulty) * cnormalize(p2 - p1) * cdir(M_PI/2 + 0.2 * i)),
+				.move = move_accelerated(0, (0.001 * shot_accel) * cnormalize(p2 - p1) * cdir(M_PI/2 + 0.2 * i)),
 			);
 		}
 		play_sfx("shot_special1");

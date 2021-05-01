@@ -116,8 +116,8 @@ Boss *stage5_spawn_iku(cmplx pos) {
 
 DEFINE_EXTERN_TASK(iku_induction_bullet) {
 	Projectile *p = TASK_BIND(ARGS.p);
-	cmplx m1 = ARGS.m1;
-	cmplx m2 = ARGS.m2;
+	cmplx radial_vel = ARGS.radial_vel;
+	cmplx angular_vel = ARGS.angular_vel;
 
 	for(int time = 0;; time++, YIELD) {
 		int t = time * sqrt(global.diff);
@@ -126,14 +126,15 @@ DEFINE_EXTERN_TASK(iku_induction_bullet) {
 			t = 230-t;
 		}
 
-		p->pos = p->pos0 + m1 * t * cexp(m2 * t);
+		p->pos = p->pos0 + radial_vel * t * cexp(angular_vel * t);
 
 		if(time == 0) {
 			// don't lerp; the spawn position is very different on hard/lunatic and would cause false hits
 			p->prevpos = p->pos;
 		}
 
-		p->angle = carg(m1 * cexp(m2 * t) * (1 + m2 * t));
+		// calculate angle manually using the derivative of p->pos
+		p->angle = carg(radial_vel * cexp(angular_vel * t) * (1 + angular_vel * t));
 	}
 }
 
