@@ -47,7 +47,7 @@ TASK(kurumi_blowwall_exploder, { cmplx pos; cmplx acceleration; }) {
 	play_sfx("shot_special1");
 }
 
-static void bwlaser(Boss *b, cmplx direction, bool explode) {
+static void kurumi_blowwall_laser(Boss *b, cmplx direction, bool explode) {
 	cmplx acceleration = 0.1 * (1 + explode) * direction;
 	create_lasercurve2c(b->pos, 50, 100, RGBA(1.0, 0.3, 0.3, 0.0), las_accel, 0, acceleration);
 
@@ -72,18 +72,18 @@ DEFINE_EXTERN_TASK(kurumi_blowwall) {
 	for(;;) {
 		aniplayer_queue(&b->ani,"muda",0);
 		WAIT(50);
-		bwlaser(b, cdir(0.4), true);
+		kurumi_blowwall_laser(b, cdir(0.4), true);
 
 		WAIT(50);
-		bwlaser(b, cdir(M_PI-0.4), true);
+		kurumi_blowwall_laser(b, cdir(M_PI-0.4), true);
 		WAIT(100);
 		for(int i = 0; i < 2; i++) {
-			bwlaser(b, cdir(-M_PI * rng_real()), true);
+			kurumi_blowwall_laser(b, cdir(-M_PI * rng_real()), true);
 			WAIT(50);
 		}
 		play_sfx("laser1");
 		for(int i = 0; i < 20; i++) {
-			bwlaser(b, cdir(M_PI / 10 * i), false);
+			kurumi_blowwall_laser(b, cdir(M_PI / 10 * i), false);
 			WAIT(10);
 		}
 		INVOKE_SUBTASK(common_charge, b->pos, RGBA(1, 0.3, 0.2, 0), 100, .sound = COMMON_CHARGE_SOUNDS);
