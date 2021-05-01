@@ -61,7 +61,7 @@ struct stage4_spells_s stage4_spells = {
 
 	.extra.vlads_army = {
 		{ 0,  1,  2,  3}, AT_ExtraSpell, "Blood Magic “Vlad’s Army”", 60, 50000,
-		kurumi_extra, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+		NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_vladsarmy)
 	},
 };
 
