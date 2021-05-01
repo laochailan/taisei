@@ -18,7 +18,7 @@ DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_dryfountain, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_redspike, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_aniwall, BossAttack);
 DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_blowwall, BossAttack);
-void kurumi_danmaku(Boss*, int);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_vampvape, BossAttack);
 void kurumi_extra(Boss*, int);
 
 #endif // IGUARD_stages_stage4_spells_spells_h

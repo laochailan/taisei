@@ -55,7 +55,7 @@ struct stage4_spells_s stage4_spells = {
 		},
 		.bloody_danmaku = {
 			{18, 19, 16, 17}, AT_Spellcard, "Predation “Vampiric Vapor”", 80, 60000,
-			kurumi_danmaku, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_vampvape)
 		},
 	},
 
