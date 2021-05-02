@@ -51,7 +51,7 @@ TASK(splasher_fairy, { cmplx pos; int direction; }) {
 			.color = RGB(0.8, 0.3 - 0.1 * vrng_real(rand[0]), 0.5),
             .move = move_accelerated(move / 2 + (1 - 2 * vrng_real(rand[1])) + (1 - 2 * vrng_real(rand[2])) * I, 0.02 * I),
 		);
-		play_sfx("shot1_loop");
+		play_sfx_loop("shot1_loop");
 	}
 
 	WAIT(60);
@@ -564,27 +564,26 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 	WAIT(3200);
 	INVOKE_TASK(spawn_midboss);
 	int midboss_time = WAIT_EVENT(&global.boss->events.defeated).frames;
-	int filler_time = 1900;
-	int time_ofs = 0 - midboss_time;
-	// FIX ME
+	int filler_time = STAGE4_MIDBOSS_MUSIC_TIME;
 
 	STAGE_BOOKMARK(post-midboss);
 
-	filler_time -= WAIT(300 - midboss_time);
-
-	INVOKE_TASK_DELAYED(3201, ensure_scythe_spawn, .duration = midboss_time -1);
+	if(filler_time - midboss_time > 100) {
+		INVOKE_TASK(ensure_scythe_spawn, .duration = filler_time - midboss_time);
+	}
+	WAIT(filler_time-midboss_time);
 			     
 	for(int i = 0; i < 20; i++) {
 		real phase = 2 * i/M_PI;
 		cmplx pos = VIEWPORT_W * (i&1) + I * 120 * psin(phase);
-		INVOKE_TASK_DELAYED(2060 + midboss_time + 15 * i, fodder_fairy, .pos = pos, .move = move_linear(2 - 4 * (i & 1) + I));
+		INVOKE_TASK_DELAYED(15 * i, fodder_fairy, .pos = pos, .move = move_linear(2 - 4 * (i & 1) + I));
 	}
 			     
 	for(int i = 0; i < 11; i++) {
 		cmplx pos = VIEWPORT_W * (i & 1);
 		cmplx vel = 2 * cdir(M_PI / 2 * (0.2 + 0.6 * rng_real() + (i & 1)));
 
-		INVOKE_TASK_DELAYED(3350 + midboss_time + 60 * i, partcircle_fairy, .pos = pos, .move = move_linear(vel));
+		INVOKE_TASK_DELAYED(350 + 60 * i, partcircle_fairy, .pos = pos, .move = move_linear(vel));
 	}
 
 	for(int i = 0; i < 4; i++) {
@@ -593,12 +592,12 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 		cmplx pos2 = VIEWPORT_W * (1.0 + 2.0 * ((i + 1) & 1)) / 4.0 + 300.0*I;
 		cmplx pos3 = VIEWPORT_W * 0.5 - 200 * I;
 		
-		INVOKE_TASK_DELAYED(3550 + midboss_time + 200 * i, cardbuster_fairy, .poss = { 
+		INVOKE_TASK_DELAYED(550 + 200 * i, cardbuster_fairy, .poss = { 
 			pos0, pos1, pos2, pos3
 		});
 	}
 		
-	INVOKE_TASK_DELAYED(3800 + midboss_time, supercard_fairy,
+	INVOKE_TASK_DELAYED(800, supercard_fairy,
 			    .pos = VIEWPORT_W / 2.0,
 			    .move = move_linear(4.0 * I)
 	);
@@ -607,29 +606,18 @@ DEFINE_EXTERN_TASK(stage4_timeline) {
 	int swirl_count = 300 / swirl_delay;
 	for(int i = 0; i < swirl_count; i++) {
 		cmplx pos = VIEWPORT_W * (i & 1) + 100 * I;
-		INVOKE_TASK_DELAYED(4300 + midboss_time + swirl_delay * i, backfire_swirl, .pos = pos, .move = move_linear(rng_real() * (1 - 2 * (i & 1))));
+		INVOKE_TASK_DELAYED(1300 + swirl_delay * i, backfire_swirl, .pos = pos, .move = move_linear(rng_real() * (1 - 2 * (i & 1))));
 	}
 
 	for(int i = 0; i < 40; i++) {
 		cmplx pos = VIEWPORT_W * (i & 1) + I * (20.0 + VIEWPORT_H/3.0 * rng_real());
 		cmplx vel = 3 * (1 - 2 * (i & 1)) + I;
-		INVOKE_TASK_DELAYED(4800 + midboss_time + 10 * i, explosive_swirl, .pos = pos, .move = move_linear(vel));
+		INVOKE_TASK_DELAYED(1800 + 10 * i, explosive_swirl, .pos = pos, .move = move_linear(vel));
 	}
 
-	INVOKE_TASK_DELAYED(5300 + midboss_time, spawn_boss);
-	WAIT(5300+midboss_time+1);
-/* 	AT(5300 + midboss_time) { */
-/* 		stage_unlock_bgm("stage4"); */
-/* 		stage4_bg_redden_corridor(); */
-/* 		global.boss = create_kurumi(); */
-/* 	} */
-
-/* 	AT(5400 + midboss_time) { */
-/* 		stage_unlock_bgm("stage4boss"); */
-/* 		stage4_dialog_post_boss(); */
-/* 	} */
-
-	WAIT_EVENT(&global.boss->events.defeated);
+	WAIT(2300);
+	INVOKE_TASK(spawn_boss);
+	WAIT_EVENT(&NOT_NULL(global.boss)->events.defeated);
 	stage_unlock_bgm("stage2boss");
 
 	WAIT(240);
