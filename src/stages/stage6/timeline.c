@@ -95,34 +95,38 @@ TASK(side_fairy, { cmplx pos; MoveParams move; cmplx direction; real index; }) {
 	e->move = ARGS.move;
 }
 
-static int stage6_flowermine(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 4, ITEM_POWER, 3);
-		return 1;
-	}
+TASK(flowermine_fairy_move, { BoxedEnemy enemy; MoveParams move1; MoveParams move2; }) {
+	Enemy *e = TASK_BIND(ARGS.enemy);
+	e->move = ARGS.move1;
+	WAIT(70);
+	e->move = ARGS.move2;
+	WAIT(130);
+	e->move = ARGS.move1;
+}
 
-	e->pos += e->args[0];
+TASK(flowermine_proj_redirect, { BoxedProjectile proj; MoveParams move; }) {
+	Projectile *p = TASK_BIND(ARGS.proj);
+	p->move = ARGS.move;
+}
 
-	FROM_TO(70, 200, 1)
-		e->args[0] += 0.07*cexp(I*carg(e->args[1]-e->pos));
 
-	FROM_TO(0, 1000, 7-global.diff) {
-		PROJECTILE(
+TASK(flowermine_fairy, { cmplx pos; MoveParams move1; MoveParams move2; }) {
+	Enemy *e = TASK_BIND(espawn_fairy_blue(ARGS.pos, ITEMS(.points = 4, .power = 3)));
+	INVOKE_TASK(flowermine_fairy_move, ENT_BOX(e), .move1 = ARGS.move1, .move2 = ARGS.move2);
+
+	int step = difficulty_value(6, 5, 4, 3);
+	real speed = difficulty_value(1.0, 1.3, 1.6, 1.9);
+	for(int i = 0; i < 1000/step; i++, WAIT(step)) {
+		cmplx dir = cdir(0.6 * i);
+		Projectile *p = PROJECTILE(
 			.proto = pp_rice,
-			.pos = e->pos + 40*cexp(I*0.6*_i+I*carg(e->args[0])),
-			.color = RGB(1-psin(_i), 0.3, psin(_i)),
-			.rule = wait_proj,
-			.args = {
-				I*cexp(I*0.6*_i)*(0.7+0.3*global.diff),
-				200
-			},
-			.angle = 0.6*_i,
+			.pos = e->pos + 40 * cnormalize(ARGS.move1.velocity) * dir,
+			.color = RGB(1-psin(i), 0.3, psin(i)),
+			.move = move_linear(I * dir * 0.0001)
 		);
+		INVOKE_TASK_DELAYED(200, flowermine_proj_redirect, ENT_BOX(p), move_linear(I * cdir(0.6 * i) * speed));
 		play_sfx("shot1");
 	}
-
-	return 1;
 }
 
 static int scythe_intro(Enemy *e, int t) {
@@ -243,12 +247,23 @@ DEFINE_EXTERN_TASK(stage6_timeline) {
 		);
 	}
 
-	/*FROM_TO(1380, 1660, 20)
-		create_enemy2c(200.0*I, 600, Fairy, stage6_flowermine, 2*cexp(0.5*I*M_PI/9*_i)+1, 0);
+	for(int i = 0; i < 14; i++) {
+		INVOKE_TASK_DELAYED(1380 + 20 * i, flowermine_fairy,
+			.pos = 200.0 * I,
+			.move1 = move_linear(2 * cdir(0.5 * M_PI / 9 * i) + 1.0),
+			.move2 = move_towards(0, 0.01) // XXX use acceleration_exponent once available?
+		);
+	}
+	
+	for(int i = 0; i < 20; i++) {
+		INVOKE_TASK_DELAYED(1600 + 20 * i, flowermine_fairy,
+			.pos = VIEWPORT_W / 2.0,
+			.move1 = move_linear(2 * I * cdir(0.5 * M_PI / 9 * i) + 1.0 * I),
+			.move2 = move_towards(VIEWPORT_W + I * VIEWPORT_H * 0.5, 0.01) // XXX use acceleration_exponent once available?
+		);
+	}
 
-	FROM_TO(1600, 2000, 20)
-		create_enemy3c(VIEWPORT_W/2, 600, Fairy, stage6_flowermine, 2*cexp(0.5*I*M_PI/9*_i+I*M_PI/2)+1.0*I, VIEWPORT_H/2*I+VIEWPORT_W, 1);
-
+	/*
 	AT(2300)
 		create_enemy3c(200.0*I-200, ENEMY_IMMUNE, scythe_draw, scythe_mid, 1, 0.2*I, 1);
 
