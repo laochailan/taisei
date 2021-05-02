@@ -66,39 +66,33 @@ TASK(hacker_fairy, { cmplx pos; MoveParams move; }) {
 	}
 
 	WAIT(60);
-	e->move = move_linear(-e->move.velocity);
+	e->move = move_linear(-ARGS.move.velocity);
 }
 
-static int stage6_side(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 4, ITEM_POWER, 3);
-		return 1;
+TASK(side_fairy, { cmplx pos; MoveParams move; cmplx direction; real index; }) {
+	Enemy *e = TASK_BIND(espawn_fairy_blue(ARGS.pos, ITEMS(.points = 4, .power = 3)));
+	e->move = ARGS.move;
+
+	WAIT(60);
+	e->move = move_stop(0.5);
+
+	WAIT(10);
+
+	int count = difficulty_value(25, 35, 45, 55); 
+	real speed = difficulty_value(0.9, 1.1, 1.3, 1.5);
+	play_sfx_ex("shot1", 4, true);
+	for(int i = 0; i < count; i++) {
+		PROJECTILE(
+			.proto = (i % 2 == 0) ? pp_rice : pp_flea,
+			.pos = e->pos + 5 * (i/2) * ARGS.direction,
+			.color = RGB(0.1 * ARGS.index, 0.5, 1),
+			.move = move_accelerated(I * (1.0 - 2.0 * (i & 1)) * speed,
+				0.001 * (i/2) * ARGS.direction)
+		);
 	}
 
-	if(t < 60 || t > 120)
-		e->pos += e->args[0];
-
-	AT(70) {
-		int i;
-		int c = 15+10*global.diff;
-		play_sfx_ex("shot1",4,true);
-		for(i = 0; i < c; i++) {
-			PROJECTILE(
-				.proto = (i%2 == 0) ? pp_rice : pp_flea,
-				.pos = e->pos+5*(i/2)*e->args[1],
-				.color = RGB(0.1*cabs(e->args[2]), 0.5, 1),
-				.rule = accelerated,
-				.args = {
-					(1.0*I-2.0*I*(i&1))*(0.7+0.2*global.diff),
-					0.001*(i/2)*e->args[1]
-				}
-			);
-		}
-		e->hp /= 4;
-	}
-
-	return 1;
+	WAIT(50);
+	e->move = ARGS.move;
 }
 
 static int stage6_flowermine(Enemy *e, int t) {
@@ -229,16 +223,27 @@ static Boss* create_elly(void) {
 DEFINE_EXTERN_TASK(stage6_timeline) {
 
 	INVOKE_TASK_DELAYED(100, hacker_fairy, .pos = VIEWPORT_W / 2.0, .move = move_linear(2.0 * I));
-/*
-	FROM_TO(500, 700, 10)
-		create_enemy3c(VIEWPORT_W*(_i&1), 2000, Fairy, stage6_side, 2.0*I+0.1*(1-2*(_i&1)),1-2*(_i&1),_i);
 
-	FROM_TO(720, 940, 10) {
-		cmplx p = VIEWPORT_W/2+(1-2*(_i&1))*20*(_i%10);
-		create_enemy3c(p, 2000, Fairy, stage6_side, 2.0*I+1*(1-2*(_i&1)),I*cexp(I*carg(global.plr.pos-p))*(1-2*(_i&1)),_i*psin(_i));
+	for(int i = 0; i < 20; i++) {
+		INVOKE_TASK_DELAYED(500 + 10 * i, side_fairy,
+			.pos = VIEWPORT_W * (i & 1),
+			.move = move_linear(2.0 * I + 0.1 * (1 - 2 * (i & 1))),
+			.direction = 1 - 2 * (i & 1),
+			.index = i
+		);
 	}
 
-	FROM_TO(1380, 1660, 20)
+	for(int i = 0; i < 22; i++) {
+		cmplx pos = VIEWPORT_W / 2.0 + (1 - 2*(i&1)) * 20 * (i % 10);
+		INVOKE_TASK_DELAYED(720 + 10 * i, side_fairy,
+			.pos = pos,
+			.move = move_linear(2.0 * I + (1 - 2 * (i & 1))),
+			.direction = I * cnormalize(global.plr.pos - pos) * (1 - 2 * (i & 1)),
+			.index = i * psin(i)
+		);
+	}
+
+	/*FROM_TO(1380, 1660, 20)
 		create_enemy2c(200.0*I, 600, Fairy, stage6_flowermine, 2*cexp(0.5*I*M_PI/9*_i)+1, 0);
 
 	FROM_TO(1600, 2000, 20)
