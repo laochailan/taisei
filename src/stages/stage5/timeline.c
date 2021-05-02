@@ -82,7 +82,7 @@ TASK(magnetto_swirl, {
 	play_sfx_delayed("redirect", 0, false, 180);
 
 	// FIXME: for some reason, this move doesn't work anymore
-	INVOKE_TASK(magnetto_swirl_move, {
+	INVOKE_SUBTASK(magnetto_swirl_move, {
 		.e = ENT_BOX(e),
 		.move_to = ARGS.move_to
 	});
@@ -117,9 +117,9 @@ TASK(magnetto_swirls, {
 }
 
 TASK_WITH_INTERFACE(midboss_flee, BossAttack) {
-    Boss *boss = INIT_BOSS_ATTACK(&ARGS);
+	Boss *boss = INIT_BOSS_ATTACK(&ARGS);
 	BEGIN_BOSS_ATTACK(&ARGS);
-    boss->move = move_linear(I);
+	boss->move = move_linear(I);
 }
 
 TASK(spawn_midboss, NO_ARGS) {
@@ -358,15 +358,16 @@ TASK(laser_fairy, {
 	cmplx pos;
 	MoveParams move_enter;
 	MoveParams move_exit;
-	int reduction;
+	int time;
 }) {
 	Enemy *e = TASK_BIND(espawn_big_fairy(ARGS.pos, ITEMS(.points = 4, .power = 2)));
 
 	e->move = ARGS.move_enter;
 	WAIT(100);
 
-	int delay = difficulty_value(6, 5, 4, 3) + ARGS.reduction;
-	int amount = 700 / delay;
+	int delay = difficulty_value(9, 8, 7, 6);
+	int amount = ARGS.time / delay;
+
 	int angle_mod = difficulty_value(1, 2, 3, 4);
 	int dir_mod = difficulty_value(9, 8, 7, 6);
 
@@ -669,7 +670,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.pos = VIEWPORT_W/2,
 		.move_enter = move_towards(VIEWPORT_W/2 + 2.0 * I * 100, 0.05),
 		.move_exit = move_linear(-(2.0 * I)),
-		.reduction = 1,
+		.time = 700,
 	});
 
 	// 1400
@@ -739,7 +740,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.pos = VIEWPORT_W/4,
 		.move_enter = move_towards(VIEWPORT_W/4 + 2.0 * I * 100, 0.05),
 		.move_exit = move_linear(-(2.0 * I)),
-		.reduction = 2,
+		.time = 600,
 	});
 
 	// 3400
@@ -747,7 +748,7 @@ DEFINE_EXTERN_TASK(stage5_timeline) {
 		.pos = VIEWPORT_W/4 * 3,
 		.move_enter = move_towards(VIEWPORT_W/4 * 3 + 2.0 * I * 100, 0.05),
 		.move_exit = move_linear(-(2.0 * I)),
-		.reduction = 2,
+		.time = 600,
 	});
 
 	// 4200
