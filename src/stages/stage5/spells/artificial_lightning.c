@@ -33,7 +33,7 @@ TASK(zigzag_move, { BoxedProjectile p; cmplx velocity; }) {
 
 	for(int time = 0;; time++, YIELD) {
 		int zigtime = 50;
-		p->pos = p->pos0 + (abs(((2 * time) % zigtime) - zigtime / 2) * I + time) * 2 * ARGS.velocity;
+		p->pos = p->pos0 + (abs(((2 * time) % zigtime) - zigtime / 2) * I + time) * ARGS.velocity;
 
 		if(time % 2 == 0) {
 			PARTICLE(
@@ -78,8 +78,8 @@ TASK(lightning_slave_move, { BoxedEnemy e; cmplx velocity; }) {
 }
 
 TASK(lightning_slave, { cmplx pos; cmplx move_arg; }) {
-	// TODO: get rid of ENEMY_IMMUNE
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, ENEMY_IMMUNE, NULL, NULL, 0));
+	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 1, NULL, NULL, 0));
+	e->flags = EFLAGS_GHOST;
 
 	INVOKE_TASK(lightning_slave_move, ENT_BOX(e), ARGS.move_arg);
 
@@ -91,8 +91,7 @@ TASK(lightning_slave, { cmplx pos; cmplx move_arg; }) {
 				.proto = pp_wave,
 				.pos = e->pos,
 				.color = clr,
-				// TODO: this doesn't quite work right
-				.move = move_asymptotic_simple(0.75 * ARGS.move_arg / cabs(ARGS.move_arg) * I, 10),
+				.move = move_asymptotic_simple(0.75 * e->move.velocity / cabs(e->move.velocity) * I, 10),
 			);
 
 			if(projectile_in_viewport(p)) {

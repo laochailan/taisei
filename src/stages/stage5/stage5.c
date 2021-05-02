@@ -22,10 +22,10 @@
 struct stage5_spells_s stage5_spells = {
 	.mid = {
 		.static_bomb = {
-			{ 16, 17, 18, 19}, AT_SurvivalSpell, "High Voltage “Static Bomb”", 15, 44000,
-			NULL, NULL, BOSS_DEFAULT_GO_POS, 5,
+			{ 16, 17, 18, 19}, AT_SurvivalSpell, "High Voltage “Static Bomb”", 16, 10,
+			NULL, NULL, BOSS_DEFAULT_GO_POS, 0,
 			TASK_INDIRECT_INIT(BossAttack, stage5_midboss_static_bomb)
-		}
+		},
 	},
 
 	.boss = {

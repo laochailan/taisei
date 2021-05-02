@@ -26,8 +26,6 @@ static void stage5_dialog_post_midboss(void) {
 	INVOKE_TASK_INDIRECT(Stage5PostMidBossDialog, pm->dialog->Stage5PostMidBoss);
 }
 
-static void midboss_dummy(Boss *b, int t) { }
-
 TASK(magnetto_swirl_shoot, {
 	BoxedEnemy e;
 	cmplx move_to;
@@ -118,6 +116,12 @@ TASK(magnetto_swirls, {
 	}
 }
 
+TASK_WITH_INTERFACE(midboss_flee, BossAttack) {
+    Boss *boss = INIT_BOSS_ATTACK(&ARGS);
+	BEGIN_BOSS_ATTACK(&ARGS);
+    boss->move = move_linear(I);
+}
+
 TASK(spawn_midboss, NO_ARGS) {
 	STAGE_BOOKMARK(midboss);
 	Boss *boss = global.boss = create_boss("Bombs?", "iku_mid", VIEWPORT_W + 800.0 * I);
@@ -129,7 +133,8 @@ TASK(spawn_midboss, NO_ARGS) {
 
 	// suppress the boss death effects (this triggers the "boss fleeing" case)
 	// TODO: investigate why the death effect doesn't work (points/items still spawn off-screen)
-	boss_add_attack(boss, AT_Move, "", 0, 0, midboss_dummy, NULL);
+	boss_add_attack_task(boss, AT_Move, "Flee", 2, 0, TASK_INDIRECT(BossAttack, midboss_flee), NULL);
+
 	boss_engage(boss);
 }
 
@@ -369,7 +374,6 @@ TASK(laser_fairy, {
 		cmplx n = cnormalize(global.plr.pos - e->pos) * cdir((0.02 * dir_mod) * x);
 		real fac = (0.5 + 0.2 * angle_mod);
 
-		// TODO: is this the correct "modern" way of invoking lasers?
 		create_lasercurve2c(e->pos, 100, 300, RGBA(0.7, 0.3, 1, 0), las_accel, fac * 4 * n, fac * 0.05 * n);
 
 		PROJECTILE(

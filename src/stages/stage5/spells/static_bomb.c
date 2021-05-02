@@ -127,4 +127,6 @@ DEFINE_EXTERN_TASK(stage5_midboss_static_bomb) {
 		});
 		WAIT(10);
 	}
+	WAIT(300);
+	b->move = move_linear(3); // move off to the side so items don't appear for the player
 }
