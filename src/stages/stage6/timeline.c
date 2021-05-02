@@ -12,6 +12,7 @@
 #include "stage6.h"
 #include "draw.h"
 #include "background_anim.h"
+#include "enemy_classes.h""
 
 #include "elly.h"
 #include "nonspells/nonspells.h"
@@ -37,35 +38,35 @@ static void stage6_dialog_pre_final(void) {
 	INVOKE_TASK_INDIRECT(Stage6PreFinalDialog, pm->dialog->Stage6PreFinal);
 }
 
-static int stage6_hacker(Enemy *e, int t) {
-	TIMER(&t);
-	AT(EVENT_KILLED) {
-		spawn_items(e->pos, ITEM_POINTS, 4, ITEM_POWER, 3);
-		return 1;
-	}
+TASK(hacker_fairy, { cmplx pos; MoveParams move; }) {
+	Enemy *e = TASK_BIND(espawn_huge_fairy(ARGS.pos, ITEMS(.points = 4, .power = 3)));
+	e->move = ARGS.move;
 
-	FROM_TO(0, 70, 1)
-		e->pos += e->args[0];
+	WAIT(70);
+	e->move = move_stop(0.5);
 
-	FROM_TO_SND("shot1_loop",100, 180+40*global.diff, 3) {
-		int i;
-		for(i = 0; i < 6; i++) {
-			cmplx n = sin(_i*0.2)*cexp(I*0.3*(i/2-1))*(1-2*(i&1));
+	WAIT(30);
+	int duration = difficulty_value(220, 260, 300, 340);
+	int step = 3;
+	
+	for(int i = 0; i < duration/step; i++, WAIT(step)) {
+		play_sfx_loop("shot1_loop");
+		for(int j = 0; j < 6; j++) {
+			cmplx dir = sin(i * 0.2) * cdir(0.3 * (j / 2 - 1)) * (1 - 2 * (i&1));
+
+			cmplx vel = (-0.5 * sin(global.frames + i * 46752 + 16463 * j + 467 * sin(global.frames*i*j))) * global.diff + creal(dir) + 2.0 * I;
+
 			PROJECTILE(
 				.proto = pp_wave,
-				.pos = e->pos + 120*n,
-				.color = RGB(1.0, 0.2-0.01*_i, 0.0),
-				.rule = linear,
-				.args = {
-					(0.25-0.5*psin(global.frames+_i*46752+16463*i+467*sin(global.frames*_i*i)))*global.diff+creal(n)+2.0*I
-				},
+				.pos = e->pos + 120 * dir,
+				.color = RGB(1.0, 0.2 - 0.01 * i, 0.0),
+				.move = move_linear(vel)
 			);
 		}
 	}
 
-	FROM_TO(180+40*global.diff+60, 2000, 1)
-		e->pos -= e->args[0];
-	return 1;
+	WAIT(60);
+	e->move = move_linear(-e->move.velocity);
 }
 
 static int stage6_side(Enemy *e, int t) {
@@ -225,17 +226,10 @@ static Boss* create_elly(void) {
 	return b;
 }
 
-void stage6_events(void) {
-	TIMER(&global.timer);
+DEFINE_EXTERN_TASK(stage6_timeline) {
 
-	AT(0) {
-		stage_start_bgm("stage6");
-		stage_set_voltage_thresholds(380, 670, 1100, 1500);
-	}
-
-	AT(100)
-		create_enemy1c(VIEWPORT_W/2, 6000, BigFairy, stage6_hacker, 2.0*I);
-
+	INVOKE_TASK_DELAYED(100, hacker_fairy, .pos = VIEWPORT_W / 2.0, .move = move_linear(2.0 * I));
+/*
 	FROM_TO(500, 700, 10)
 		create_enemy3c(VIEWPORT_W*(_i&1), 2000, Fairy, stage6_side, 2.0*I+0.1*(1-2*(_i&1)),1-2*(_i&1),_i);
 
@@ -261,5 +255,5 @@ void stage6_events(void) {
 	AT(3805) {
 		stage_unlock_bgm("stage6boss_phase3");
 		stage_finish(GAMEOVER_SCORESCREEN);
-	}
+	}*/
 }

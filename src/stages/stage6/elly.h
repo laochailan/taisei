@@ -20,6 +20,8 @@
 #define SYMMETRYTIME (HIGGSTIME+200)
 #define BREAKTIME (YUKAWATIME+400)
 
+Boss* stage6_spawn_elly(cmplx pos);
+
 void scythe_common(Enemy*, int t);
 void scythe_draw(Enemy*, int, bool);
 int scythe_mid(Enemy*, int);
