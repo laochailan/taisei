@@ -19,6 +19,7 @@
 #include "global.h"
 #include "stagetext.h"
 #include "common_tasks.h"
+#include "enemy_classes.h"
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
@@ -62,12 +63,10 @@ TASK(death_burst, { BoxedEnemy e; ProjPrototype *shot_proj; }) {
 
 TASK(burst_swirl, { cmplx pos; cmplx dir; ProjPrototype *shot_proj; }) {
 	// swirls - fly in, explode when killed or after a preset time
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 200, Swirl, NULL, 0));
-
-	INVOKE_TASK_WHEN(&e->events.killed, common_drop_items, &e->pos, {
+	Enemy *e = TASK_BIND(espawn_swirl(ARGS.pos, ITEMS(
 		.points = 1,
 		.power = 1,
-	});
+	)));
 
 	// die after preset time
 	INVOKE_TASK_DELAYED(60, destroy_enemy, ENT_BOX(e));
@@ -94,12 +93,10 @@ TASK(burst_swirls, { int count; int interval; ProjPrototype *shot_proj; }) {
 // typically move across a stage in a drive-by fashion
 
 TASK(side_swirl, { MoveParams move; cmplx start_pos; }) {
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.start_pos, 50, Swirl, NULL, 0));
-
-	INVOKE_TASK_WHEN(&e->events.killed, common_drop_items, &e->pos, {
+	Enemy *e = TASK_BIND(espawn_swirl(ARGS.start_pos, ITEMS(
 		.points = 1,
 		.power = 1,
-	});
+	)));
 
 	e->move = ARGS.move;
 	WAIT(50);
@@ -117,7 +114,7 @@ TASK(side_swirl, { MoveParams move; cmplx start_pos; }) {
 			),
 		);
 
-		play_sound("shot1");
+		play_sfx("shot1");
 		WAIT(20);
 	}
 
@@ -129,9 +126,6 @@ TASK(side_swirls_procession, { int interval; int count; MoveParams move; cmplx s
 		WAIT(ARGS.interval);
 	}
 }
-
-
-
 
 TASK(little_fairy_shot_ball, { BoxedEnemy e; int shot_interval; int intensity;} ) {
 	Enemy *e = TASK_BIND(ARGS.e);
@@ -162,7 +156,7 @@ TASK(little_fairy_shot_ball, { BoxedEnemy e; int shot_interval; int intensity;} 
 			);
 		}
 
-		play_sound("shot1");
+		play_sfx("shot1");
 		WAIT(ARGS.shot_interval);
 	}
 
@@ -199,7 +193,7 @@ TASK(little_fairy_shot_wave, { BoxedEnemy e; int shot_interval; int intensity; }
 			);
 		}
 
-		play_sound("shot1");
+		play_sfx("shot1");
 		WAIT(ARGS.shot_interval);
 	}
 
@@ -209,16 +203,15 @@ TASK(little_fairy_shot_wave, { BoxedEnemy e; int shot_interval; int intensity; }
 
 TASK(little_fairy, { cmplx pos; cmplx target_pos; int shot_type; int side; }) {
 	// contains stage3_slavefairy and stage3_slavefairy2
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 900, Fairy, NULL, 0));
+	Enemy *e = TASK_BIND(espawn_fairy_blue(ARGS.pos, ITEMS(
+		.points = 3,
+		.power = 1,
+	)));
+
 	// fade-in
 	e->alpha = 0;
 
-	INVOKE_TASK_WHEN(&e->events.killed, common_drop_items, &e->pos, {
-		.points = 3,
-		.power = 1,
-	});
-
-	e->move.attraction_point = ARGS.target_pos;
+	e->move = move_towards(ARGS.target_pos, 0);
 
 	int shot_interval = 1;
 	int intensity = difficulty_value(30, 50, 70, 90);
@@ -254,15 +247,12 @@ TASK(little_fairy_line, { int count; }) {
 TASK(big_fairy_group, { cmplx pos; int shot_type; } ) {
 	// big fairy in the middle does nothing
 	// 8 fairies (2 pairs in 4 waves - bottom/top/bottom/top) spawn around her and open fire
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 10000, BigFairy, NULL, 0));
-
-	e->alpha = 0;
-
-	INVOKE_TASK_WHEN(&e->events.killed, common_drop_items, &e->pos, {
+	Enemy *e = TASK_BIND(espawn_huge_fairy(ARGS.pos, ITEMS(
 		.points = 3,
 		.power = 2,
-	});
+	)));
 
+	e->alpha = 0;
 	WAIT(100);
 
 	for(int x = 0; x < 2; ++x) {
@@ -307,17 +297,14 @@ TASK(big_fairy_group, { cmplx pos; int shot_type; } ) {
 }
 
 TASK(burst_fairy, { cmplx pos; cmplx target_pos; } ) {
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 700, Fairy, NULL, 0));
-
-	INVOKE_TASK_WHEN(&e->events.killed, common_drop_items, &e->pos, {
+	Enemy *e = TASK_BIND(espawn_fairy_red(ARGS.pos, ITEMS(
 		.points = 1,
 		.power = 1,
-	});
+	)));
 
 	e->alpha = 0;
 
-	e->move.attraction_point = ARGS.target_pos;
-	e->move.attraction = 0.08;
+	e->move = move_towards(ARGS.target_pos, 0.08);
 	WAIT(30);
 
 	int difficulty = difficulty_value(4, 8, 12, 16);
@@ -334,7 +321,7 @@ TASK(burst_fairy, { cmplx pos; cmplx target_pos; } ) {
 	}
 
 	WAIT(60);
-	play_sound("shot_special1");
+	play_sfx("shot_special1");
 	INVOKE_TASK(common_charge, e->pos, RGBA(0.0, 0.5, 1.0, 0.5), 60, .sound = COMMON_CHARGE_SOUNDS);
 
 	int intensity = difficulty_value(4, 6, 8, 10);
@@ -378,31 +365,33 @@ TASK(burst_fairy_squad, { int count; int step; } ) {
 
 TASK(charge_fairy, { cmplx pos; cmplx target_pos; cmplx exit_dir; int charge_time; int move_first; }) {
 	// charges up some danmaku and then "releases" them
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 1000, Fairy, NULL, 0));
+	Enemy *e = TASK_BIND(espawn_fairy_red(ARGS.pos, ITEMS(
+		.points = 1,
+		.power = 4,
+	)));
 
 	e->alpha = 0;
 
 	if(ARGS.move_first) {
-		e->move.attraction_point = ARGS.target_pos;
-		e->move.attraction = 0.03;
+		e->move = move_towards(ARGS.target_pos, 0.03);
 		WAIT(100);
 	}
 
-	play_sound("shot_special1");
+	play_sfx("shot_special1");
 	INVOKE_TASK(common_charge, e->pos, RGBA(0.0, 0.5, 1.0, 0.5), ARGS.charge_time, .sound = COMMON_CHARGE_SOUNDS);
 	WAIT(ARGS.charge_time + 20);
 
 	int intensity = difficulty_value(11, 15, 19, 23);
+	int layers = difficulty_value(2, 3, 4, 5);
+	int nproj = intensity * layers;
 
-	DECLARE_ENT_ARRAY(Projectile, projs, intensity*4);
+	DECLARE_ENT_ARRAY(Projectile, projs, nproj);
 
 	for(int x = 0; x < intensity; ++x) {
-
-		cmplx aim = (global.plr.pos - e->pos);
+		cmplx aim = cnormalize(global.plr.pos - e->pos);
 		aim /= cabs(aim);
-		cmplx aim_norm = -cimag(aim) + I*creal(aim);
+		cmplx aim_norm = aim * I;
 
-		int layers = 1 + global.diff;
 		int i = x;
 
 		for(int layer = 0; layer < layers; ++layer) {
@@ -416,25 +405,24 @@ TASK(charge_fairy, { cmplx pos; cmplx target_pos; cmplx exit_dir; int charge_tim
 			cmplx paim = e->pos + (w+1) * aim - o;
 			paim /= cabs(paim);
 
-			ENT_ARRAY_ADD(&projs,
-				PROJECTILE(
-					.proto = pp_wave,
-					.pos = o,
-					.color = color_lerp(RGB(0.0, 0.0, 1.0), RGB(1.0, 0.0, 0.0), f),
-					.args = {
-						paim, 6 + global.diff - layer,
-					},
-				)
-			);
+			cmplx v = paim * 0.2 * (6 + global.diff - layer);
+
+			ENT_ARRAY_ADD(&projs, PROJECTILE(
+				.proto = pp_wave,
+				.pos = o,
+				.color = color_lerp(RGB(0.0, 0.0, 1.0), RGB(1.0, 0.0, 0.0), f),
+				.move = move_linear(v),
+				.angle = carg(v),
+				.flags = PFLAG_NOMOVE,
+			));
 		}
 	}
 
 	ENT_ARRAY_FOREACH(&projs, Projectile *p, {
 		spawn_projectile_highlight_effect(p);
-		// TODO: get rid of p->args
-		p->move = move_linear(p->args[0] * (p->args[1] * 0.2));
-		play_sound("redirect");
-		play_sound("shot_special1");
+		p->flags &= ~PFLAG_NOMOVE;
+		play_sfx("redirect");
+		play_sfx("shot_special1");
 	});
 
 	WAIT(100);
@@ -474,14 +462,15 @@ TASK(charge_fairy_squad_2, { int count; cmplx start_pos; cmplx target_pos; cmplx
 }
 
 TASK(corner_fairy, { cmplx pos; cmplx p1; cmplx p2; int type; } ) {
-	Enemy *e = TASK_BIND(create_enemy1c(ARGS.pos, 500, Fairy, NULL, 0));
+	Enemy *e = TASK_BIND(espawn_fairy_red(ARGS.pos, ITEMS(
+		.power = 2,
+	)));
 
 	e->alpha = 0;
 
 	INVOKE_TASK_DELAYED(240, destroy_enemy, ENT_BOX(e));
 
-	e->move.attraction_point = ARGS.p1;
-	e->move.attraction = 0.02;
+	e->move = move_towards(ARGS.p1, 0.02);
 	WAIT(100);
 
 	int intensity = difficulty_value(7, 14, 21, 28);
@@ -507,7 +496,7 @@ TASK(corner_fairy, { cmplx pos; cmplx p1; cmplx p2; int type; } ) {
 						1.5
 					)
 				);
-				play_sound("shot1_loop");
+				play_sfx("shot1_loop");
 				WAIT(1);
 			}
 		}

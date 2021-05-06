@@ -163,7 +163,7 @@ static bool stage3_glitch(Framebuffer *fb) {
 	if(strength > 0) {
 		r_shader("glitch");
 		r_uniform_float("strength", strength);
-		r_uniform_float("frames", global.frames + 15 * nfrand());
+		r_uniform_float("frames", global.frames + 15 * rng_sreal());
 	} else {
 		return false;
 	}
