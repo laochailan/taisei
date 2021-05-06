@@ -22,9 +22,23 @@
 
 Boss* stage6_spawn_elly(cmplx pos);
 
-void scythe_common(Enemy*, int t);
-void scythe_draw(Enemy*, int, bool);
-int scythe_mid(Enemy*, int);
+typedef struct Scythe {
+	cmplx pos;
+	float angle;
+	MoveParams move;
+	float angular_velocity;
+	
+	float scale;
+} Scythe;
+
+Scythe scythe_create(cmplx pos);
+// Make sure this task only runs as long as the pointer is valid.
+DECLARE_EXTERN_TASK(scythe_update_loop, { Scythe *scythe; });
+
+
+void scythe_draw(Enemy *, int, bool);
+
+void scythe_common(Enemy*, int);
 int scythe_reset(Enemy*, int);
 int scythe_infinity(Enemy*, int);
 int scythe_explode(Enemy*, int);

@@ -12,12 +12,49 @@
 #include "elly.h"
 #include "draw.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
+Scythe scythe_create(cmplx pos) {
+	return (Scythe){ .pos = pos, .scale = 1 };
+}
 
+static void scythe_particles(Scythe *s) {
+	PARTICLE(
+		.sprite_ptr = res_sprite("stage6/scythe"),
+		.pos = s->pos+I*6*sin(global.frames/25.0),
+		.draw_rule = pdraw_timeout_fade(1, 0),
+		.timeout = 8,
+		.angle = s->angle,
+		.scale = s->scale,
+		.flags = PFLAG_REQUIREDPARTICLE,
+	);
+
+	RNG_ARRAY(rand, 2);
+	PARTICLE(
+		.sprite = "smoothdot",
+		.pos = s->pos + 100 * s->scale * vrng_real(rand[0]) * vrng_dir(rand[1]),
+		.color = RGBA(1.0, 0.1, 1.0, 0.0),
+		.draw_rule = pdraw_timeout_scalefade(0.4, 2, 1, 0),
+		.timeout = 60,
+		.flags = PFLAG_REQUIREDPARTICLE,
+	);
+}
+
+DEFINE_EXTERN_TASK(scythe_update_loop) {
+	for(;; YIELD) {
+		scythe_particles(ARGS.scythe);
+		move_update(&ARGS.scythe->pos, &ARGS.scythe->move);
+		ARGS.scythe->angle += ARGS.scythe->angular_velocity;
+	}
+}
+
+void scythe_draw(Enemy *e, int t, bool render) {
+}
+
+// REMOVE
 void scythe_common(Enemy *e, int t) {
 	e->args[1] += cimag(e->args[1]);
 }
 
+// REMOVE
 int wait_proj(Projectile *p, int t) {
 	if(t < 0) {
 		return ACTION_ACK;
@@ -36,92 +73,6 @@ int wait_proj(Projectile *p, int t) {
 	return ACTION_NONE;
 }
 
-int scythe_mid(Enemy *e, int t) {
-	TIMER(&t);
-	cmplx n;
-
-	if(t < 0) {
-		scythe_common(e, t);
-		return 1;
-	}
-
-	if(creal(e->pos) > VIEWPORT_W + 100) {
-		return ACTION_DESTROY;
-	}
-
-	e->pos += (6-global.diff-0.005*I*t)*e->args[0];
-
-	n = cexp(cimag(e->args[1])*I*t);
-	FROM_TO_SND("shot1_loop",0,300,1) {}
-	PROJECTILE(
-		.proto = pp_bigball,
-		.pos = e->pos + 80*n,
-		.color = RGBA(0.2, 0.5-0.5*cimag(n), 0.5+0.5*creal(n), 0.0),
-		.rule = wait_proj,
-		.args = {
-			global.diff*cexp(0.6*I)*n,
-			100
-		},
-	);
-
-	if(global.diff > D_Normal && t&1) {
-		Projectile *p = PROJECTILE(
-			.proto = pp_ball,
-			.pos = e->pos + 80*n,
-			.color = RGBA(0, 0.2, 0.5, 0.0),
-			.rule = accelerated,
-			.args = {
-				n,
-				0.01*global.diff*cexp(I*carg(global.plr.pos - e->pos - 80*n))
-			},
-		);
-
-		if(projectile_in_viewport(p)) {
-			play_sfx("shot1");
-		}
-	}
-
-	scythe_common(e, t);
-	return 1;
-}
-
-DEPRECATED_DRAW_RULE
-static void scythe_draw_trail(Projectile *p, int t, ProjDrawRuleArgs args) {
-	r_mat_mv_push();
-	r_mat_mv_translate(creal(p->pos), cimag(p->pos), 0);
-	r_mat_mv_rotate(p->angle + (M_PI * 0.5), 0, 0, 1);
-	r_mat_mv_scale(creal(p->args[1]), creal(p->args[1]), 1);
-	float a = (1.0 - t/p->timeout) * (1.0 - cimag(p->args[1]));
-	ProjDrawCore(p, RGBA(a, a, a, a));
-	r_mat_mv_pop();
-}
-
-void scythe_draw(Enemy *e, int t, bool render) {
-	if(render) {
-		return;
-	}
-
-	PARTICLE(
-		.sprite_ptr = get_sprite("stage6/scythe"),
-		.pos = e->pos+I*6*sin(global.frames/25.0),
-		.draw_rule = scythe_draw_trail,
-		.timeout = 8,
-		.args = { 0, e->args[2] },
-		.angle = creal(e->args[1]) - M_PI/2,
-		.flags = PFLAG_REQUIREDPARTICLE,
-	);
-
-	PARTICLE(
-		.sprite = "smoothdot",
-		.pos = e->pos+100*creal(e->args[2])*frand()*cexp(2.0*I*M_PI*frand()),
-		.color = RGBA(1.0, 0.1, 1.0, 0.0),
-		.draw_rule = GrowFade,
-		.rule = linear,
-		.timeout = 60,
-		.args = { -I+1, -I+1 }, // XXX: what the fuck?
-		.flags = PFLAG_REQUIREDPARTICLE,
-	);
-}
 
 int scythe_infinity(Enemy *e, int t) {
 	if(t < 0) {

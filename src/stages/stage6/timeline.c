@@ -12,14 +12,12 @@
 #include "stage6.h"
 #include "draw.h"
 #include "background_anim.h"
-#include "enemy_classes.h""
+#include "enemy_classes.h"
 
 #include "elly.h"
 #include "nonspells/nonspells.h"
 
 #include "common_tasks.h"
-
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
 TASK(boss_appear_stub, NO_ARGS) {
 	log_warn("FIXME");
@@ -97,15 +95,14 @@ TASK(side_fairy, { cmplx pos; MoveParams move; cmplx direction; real index; }) {
 
 TASK(flowermine_fairy_move, { BoxedEnemy enemy; MoveParams move1; MoveParams move2; }) {
 	Enemy *e = TASK_BIND(ARGS.enemy);
-	e->move = ARGS.move1;
+	e->move = ARGS.move1; // update me while retaining velocity
 	WAIT(70);
 	e->move = ARGS.move2;
-	WAIT(130);
-	e->move = ARGS.move1;
 }
 
-TASK(flowermine_proj_redirect, { BoxedProjectile proj; MoveParams move; }) {
+TASK(projectile_redirect, { BoxedProjectile proj; MoveParams move; }) {
 	Projectile *p = TASK_BIND(ARGS.proj);
+	play_sfx_ex("redirect", 1, false);
 	p->move = ARGS.move;
 }
 
@@ -124,11 +121,59 @@ TASK(flowermine_fairy, { cmplx pos; MoveParams move1; MoveParams move2; }) {
 			.color = RGB(1-psin(i), 0.3, psin(i)),
 			.move = move_linear(I * dir * 0.0001)
 		);
-		INVOKE_TASK_DELAYED(200, flowermine_proj_redirect, ENT_BOX(p), move_linear(I * cdir(0.6 * i) * speed));
+		INVOKE_TASK_DELAYED(200, projectile_redirect, ENT_BOX(p), move_linear(I * cdir(0.6 * i) * speed));
 		play_sfx("shot1");
 	}
 }
 
+TASK(scythe_mid_aimshot, { Scythe *scythe; }) {
+	for(int i = 0;; i++, WAIT(2)) {
+		cmplx dir = cdir(ARGS.scythe->angular_velocity * i);
+
+		real speed = difficulty_value(0.01, 0.02, 0.03, 0.04);
+
+		Projectile *p = PROJECTILE(
+			.proto = pp_ball,
+			.pos = ARGS.scythe->pos + 80 * dir,
+			.color = RGBA(0, 0.2, 0.5, 0.0),
+			.move = move_accelerated(dir, speed * cnormalize(global.plr.pos - ARGS.scythe->pos - 80 * dir))
+		);
+
+		if(projectile_in_viewport(p)) {
+			play_sfx("shot1");
+		}
+	}
+}
+	
+
+TASK(scythe_mid, { cmplx pos; }) {
+	STAGE_BOOKMARK(scythe-mid);
+	Scythe s = scythe_create(ARGS.pos);
+	INVOKE_SUBTASK(scythe_update_loop, &s);
+
+	real scythe_speed = difficulty_value(5, 4, 2, 1);
+
+	s.move = move_accelerated(scythe_speed, - 0.005 * I);
+	s.angular_velocity = 0.2;
+
+	if(global.diff > D_Normal) {
+		INVOKE_SUBTASK(scythe_mid_aimshot, .scythe = &s);
+	}
+	
+	for(int i = 0; i < 300; i++, YIELD) {
+		play_sfx_loop("shot1_loop");
+		cmplx dir = cdir(s.angular_velocity * i);
+		Projectile *p = PROJECTILE(
+			.proto = pp_bigball,
+			.pos = s.pos + 80 * dir,
+			.color = RGBA(0.2, 0.5 - 0.5 * cimag(dir), 0.5 + 0.5 * creal(dir), 0.0),
+		);
+
+		INVOKE_TASK_DELAYED(140, projectile_redirect, ENT_BOX(p), move_linear(global.diff * cexp(0.6 * I) * dir));
+	}
+}
+
+/*
 static int scythe_intro(Enemy *e, int t) {
 	if(t < 0) {
 		scythe_common(e, t);
@@ -170,7 +215,7 @@ static void elly_intro(Boss *b, int t) {
 
 	AT(300)
 		stage6_dialog_pre_boss();
-}
+}*/
 
 Boss* stage6_spawn_elly(cmplx pos) {
 	Boss *b = create_boss("Elly", "elly", pos);
@@ -178,7 +223,7 @@ Boss* stage6_spawn_elly(cmplx pos) {
 	b->global_rule = elly_global_rule;
 	return b;
 }
-
+/*
 static void elly_insert_interboss_dialog(Boss *b, int t) {
 	stage6_dialog_pre_final();
 }
@@ -223,7 +268,7 @@ static Boss* create_elly(void) {
 
 	return b;
 }
-
+*/
 DEFINE_EXTERN_TASK(stage6_timeline) {
 
 	INVOKE_TASK_DELAYED(100, hacker_fairy, .pos = VIEWPORT_W / 2.0, .move = move_linear(2.0 * I));
@@ -251,7 +296,7 @@ DEFINE_EXTERN_TASK(stage6_timeline) {
 		INVOKE_TASK_DELAYED(1380 + 20 * i, flowermine_fairy,
 			.pos = 200.0 * I,
 			.move1 = move_linear(2 * cdir(0.5 * M_PI / 9 * i) + 1.0),
-			.move2 = move_towards(0, 0.01) // XXX use acceleration_exponent once available?
+			.move2 = move_towards_power(-100, 1, 0.2)
 		);
 	}
 	
@@ -259,14 +304,13 @@ DEFINE_EXTERN_TASK(stage6_timeline) {
 		INVOKE_TASK_DELAYED(1600 + 20 * i, flowermine_fairy,
 			.pos = VIEWPORT_W / 2.0,
 			.move1 = move_linear(2 * I * cdir(0.5 * M_PI / 9 * i) + 1.0 * I),
-			.move2 = move_towards(VIEWPORT_W + I * VIEWPORT_H * 0.5, 0.01) // XXX use acceleration_exponent once available?
+			.move2 = move_towards_power(VIEWPORT_W + I * VIEWPORT_H * 0.5 + 100, 1, 0.2)
 		);
 	}
 
-	/*
-	AT(2300)
-		create_enemy3c(200.0*I-200, ENEMY_IMMUNE, scythe_draw, scythe_mid, 1, 0.2*I, 1);
 
+	INVOKE_TASK_DELAYED(2300, scythe_mid, .pos = -100 + I * 300);
+/*
 	AT(3800) {
 		stage_unlock_bgm("stage6");
 		global.boss = create_elly();
