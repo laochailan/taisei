@@ -13,7 +13,7 @@
 
 #include "boss.h"
 
-void stage4_events(void);
+DECLARE_EXTERN_TASK(stage4_timeline, NO_ARGS);
 
 #define STAGE4_MIDBOSS_TIME 3724
 #define STAGE4_MIDBOSS_MUSIC_TIME 2818

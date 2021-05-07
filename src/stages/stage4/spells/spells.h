@@ -13,11 +13,12 @@
 
 #include "boss.h"
 
-void kurumi_slaveburst(Boss*, int);
-void kurumi_redspike(Boss*, int);
-void kurumi_aniwall(Boss*, int);
-void kurumi_blowwall(Boss*, int);
-void kurumi_danmaku(Boss*, int);
-void kurumi_extra(Boss*, int);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_walachia, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_dryfountain, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_redspike, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_aniwall, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_blowwall, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_vampvape, BossAttack);
+DECLARE_EXTERN_TASK_WITH_INTERFACE(kurumi_vladsarmy, BossAttack);
 
 #endif // IGUARD_stages_stage4_spells_spells_h

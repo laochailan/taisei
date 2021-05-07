@@ -9,139 +9,129 @@
 #include "taisei.h"
 
 #include "spells.h"
+#include "common_tasks.h"
 #include "../kurumi.h"
 
 #include "global.h"
-
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
 static Projectile *vapor_particle(cmplx pos, const Color *clr) {
 	return PARTICLE(
 		.sprite = "stain",
 		.color = clr,
 		.timeout = 60,
-		.draw_rule = ScaleFade,
-		.args = { 0, 0, 0.2 + 2.0*I },
+		.draw_rule = pdraw_timeout_scalefade(0.2, 2.0, 0.6, 0),
 		.pos = pos,
-		.angle = M_PI*2*frand(),
+		.angle = rng_angle(),
 	);
 }
 
-static int kdanmaku_proj(Projectile *p, int t) {
-	if(t < 0) {
-		return ACTION_ACK;
+// XXX replace me by common_interpolate once merged
+TASK(interpolate, { float *clr; float target; float step; }) {
+	for(;;) {
+		fapproach_p(ARGS.clr, ARGS.target, ARGS.step);
+		YIELD;
 	}
-
-	int time = creal(p->args[0]);
-
-	if(t == time) {
-		p->color = *RGBA(0.6, 0.3, 1.0, 0.0);
-		projectile_set_prototype(p, pp_bullet);
-		p->args[1] = (global.plr.pos - p->pos) * 0.001;
-
-		if(frand() < 0.5) {
-			Projectile *v = vapor_particle(p->pos, color_mul_scalar(COLOR_COPY(&p->color), 0.5));
-
-			if(frand() < 0.5) {
-				v->flags |= PFLAG_REQUIREDPARTICLE;
-			}
-		}
-
-		PARTICLE(
-			.sprite = "flare",
-			.color = RGB(1, 1, 1),
-			.timeout = 30,
-			.draw_rule = ScaleFade,
-			.args = { 0, 0, 3.0 },
-			.pos = p->pos,
-		);
-
-		play_sound("shot3");
-	}
-
-	if(t > time && cabs(p->args[1]) < 2) {
-		p->args[1] *= 1.02;
-		fapproach_p(&p->color.a, 1, 0.025);
-	}
-
-	p->pos += p->args[1];
-	p->angle = carg(p->args[1]);
-
-	return ACTION_NONE;
 }
 
-static int kdanmaku_slave(Enemy *e, int t) {
-	float re;
+TASK(kurumi_vampvape_proj, { int delay; cmplx pos; cmplx vel; }) {
+	Projectile *p = TASK_BIND(PROJECTILE(
+		.proto = pp_thickrice,
+		.pos = ARGS.pos,
+		.color = RGBA(1.0, 0.5, 0.5, 0.0),
+		.move = move_linear(ARGS.vel),
+		.flags = PFLAG_NOSPAWNFLARE,
+	));
 
-	if(t < 0)
-		return 1;
+	WAIT(ARGS.delay);
 
-	if(!e->args[1])
-		e->pos += e->args[0]*t;
-	else
-		e->pos += 5.0*I;
+	p->color = *RGBA(0.3, 0.8, 0.8, 0.0);
+	projectile_set_prototype(p, pp_bullet);
+	p->move = move_linear((global.plr.pos - p->pos) * 0.001);
+	p->move.retention = 1.02;
 
-	if(creal(e->pos) <= 0)
-		e->pos = I*cimag(e->pos);
-	if(creal(e->pos) >= VIEWPORT_W)
-		e->pos = VIEWPORT_W + I*cimag(e->pos);
+	if(rng_chance(0.5)) {
+		Projectile *v = vapor_particle(p->pos, color_mul_scalar(COLOR_COPY(&p->color), 0.3));
 
-	re = creal(e->pos);
+		if(rng_chance(0.5)) {
+			v->flags |= PFLAG_REQUIREDPARTICLE;
+		}
+	}
 
-	if(re <= 0 || re >= VIEWPORT_W)
-		e->args[1] = 1;
+	PARTICLE(
+		.sprite = "flare",
+		.color = RGB(1, 1, 1),
+		.timeout = 30,
+		.draw_rule = pdraw_timeout_scalefade(3.0, 0, 0.6, 0),
+		.pos = p->pos,
+	);
 
-	if(cimag(e->pos) >= VIEWPORT_H)
-		return ACTION_DESTROY;
+	play_sfx("shot3");
 
-	if(e->args[2] && e->args[1]) {
-		int i, n = 3+imax(D_Normal,global.diff);
-		float speed = 1.5+0.1*global.diff;
+	INVOKE_SUBTASK(interpolate, &p->color.a, 1, 0.025);
+	while(cabs(p->move.velocity) < 2) {
+		YIELD;
+	}
+	p->move.retention = 1.0;
+}
 
-		for(i = 0; i < n; i++) {
-			cmplx p = VIEWPORT_W/(float)n*(i+psin(t*t*i*i+t*t)) + I*cimag(e->pos);
+TASK(kurumi_vampvape_slave, { cmplx pos; cmplx target; int time_offset; }) {
+	cmplx direction = cnormalize(ARGS.target - ARGS.pos);
+	cmplx acceleration = 0.2 * direction;
+	
+	create_lasercurve2c(ARGS.pos, 50, 100, RGBA(1.0, 0.3, 0.3, 0.0), las_accel, 0, acceleration);
+
+	int travel_time = sqrt(2 * cabs(ARGS.target - ARGS.pos) / cabs(acceleration));
+	WAIT(travel_time);
+	real step = 5;
+	int step_count = VIEWPORT_H / step;
+
+	for(int i = ARGS.time_offset; i < ARGS.time_offset + step_count; i++, YIELD) {
+		real y = step * i;
+
+		int count = difficulty_value(3, 4, 5, 5);
+		float speed = difficulty_value(0.5, 0.7, 0.9, 0.95);
+
+		for(int j = 0; j < count; j++) {
+			cmplx p = VIEWPORT_W / (real)count * (j + psin(i * i * j * j + i * i)) + I * y;
+			cmplx dir =  cdir(M_TAU * sin(245 * i + j * j * 3501));
+
 			if(cabs(p-global.plr.pos) > 60) {
-				PROJECTILE(
-					.proto = pp_thickrice,
-					.pos = p,
-					.color = RGBA(1.0, 0.5, 0.5, 0.0),
-					.rule = kdanmaku_proj,
-					.args = { 160, speed*0.5*cexp(2.0*I*M_PI*sin(245*t+i*i*3501)) },
-					.flags = PFLAG_NOSPAWNFLARE,
-				);
+				INVOKE_TASK(kurumi_vampvape_proj, 160, p, speed * dir);
 
-				if(frand() < 0.5) {
-					vapor_particle(p, RGBA(0.5, 0.125 * frand(), 0.125 * frand(), 0.1));
+				if(rng_chance(0.5)) {
+					RNG_ARRAY(rand, 2);
+					vapor_particle(p, RGBA(0.5, 0.125 * vrng_real(rand[0]), 0.125 * vrng_real(rand[1]), 0.1));
 				}
 			}
 		}
-		play_sound_ex("redirect", 3, false);
+		play_sfx_ex("redirect", 3, false);
 	}
-
-	return 1;
 }
 
-void kurumi_danmaku(Boss *b, int time) {
-	int t = time % 400;
-	TIMER(&t);
+DEFINE_EXTERN_TASK(kurumi_vampvape) {
+	Boss *b = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
+	
+	b->move = move_towards(BOSS_DEFAULT_GO_POS, 0.04);
 
-	if(time == EVENT_DEATH)
-		enemy_kill_all(&global.enemies);
-	if(time < 0)
-		return;
+	for(int t = 0;; t++) {
+		INVOKE_SUBTASK(common_charge, b->pos, RGBA(1, 0.3, 0.2, 0), 50, .sound = COMMON_CHARGE_SOUNDS);
+		WAIT(50);
+		play_sfx("laser1");
+		INVOKE_SUBTASK(kurumi_vampvape_slave,
+			       .pos = b->pos,
+			       .target = 0,
+			       .time_offset = t
+		);
+		INVOKE_SUBTASK(kurumi_vampvape_slave,
+			       .pos = b->pos,
+			       .target = VIEWPORT_W,
+			       .time_offset = 1.23*t
+		);
+		WAIT(210);
 
-	GO_TO(b, BOSS_DEFAULT_GO_POS, 0.04)
-
-	AT(260) {
 		aniplayer_queue(&b->ani,"muda",4);
 		aniplayer_queue(&b->ani,"main",0);
-	}
-
-	AT(50) {
-		play_sound("laser1");
-		create_lasercurve2c(b->pos, 50, 100, RGBA(1.0, 0.8, 0.8, 0.0), las_accel, 0, 0.2*cexp(I*carg(-b->pos)));
-		create_lasercurve2c(b->pos, 50, 100, RGBA(1.0, 0.8, 0.8, 0.0), las_accel, 0, 0.2*cexp(I*carg(VIEWPORT_W-b->pos)));
-		create_enemy3c(b->pos, ENEMY_IMMUNE, kurumi_slave_static_visual, kdanmaku_slave, 0.2*cexp(I*carg(-b->pos)), 0, 1);
-		create_enemy3c(b->pos, ENEMY_IMMUNE, kurumi_slave_static_visual, kdanmaku_slave, 0.2*cexp(I*carg(VIEWPORT_W-b->pos)), 0, 0);
+		WAIT(140);
 	}
 }

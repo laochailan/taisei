@@ -28,40 +28,40 @@ struct stage4_spells_s stage4_spells = {
 	.mid = {
 		.gate_of_walachia = {
 			{ 0,  1,  2,  3}, AT_Spellcard, "Bloodless “Gate of Walachia”", 50, 44000,
-			kurumi_slaveburst, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_walachia)
 		},
 		.dry_fountain = {
 			{ 4,  5, -1, -1}, AT_Spellcard, "Bloodless “Dry Fountain”", 50, 44000,
-			kurumi_redspike, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_dryfountain)
 		},
 		.red_spike = {
 			{-1, -1,  6,  7}, AT_Spellcard, "Bloodless “Red Spike”", 50, 46000,
-			kurumi_redspike, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_redspike)
 		},
 	},
 
 	.boss = {
 		.animate_wall = {
 			{ 8,  9, -1, -1}, AT_Spellcard, "Limit “Animate Wall”", 60, 50000,
-			kurumi_aniwall, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_aniwall),
 		},
 		.demon_wall = {
 			{-1, -1, 10, 11}, AT_Spellcard, "Summoning “Demon Wall”", 60, 55000,
-			kurumi_aniwall, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_aniwall)
 		},
 		.blow_the_walls = {
 			{12, 13, 14, 15}, AT_Spellcard, "Power Sign “Blow the Walls”", 60, 55000,
-			kurumi_blowwall, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_blowwall)
 		},
 		.bloody_danmaku = {
 			{18, 19, 16, 17}, AT_Spellcard, "Predation “Vampiric Vapor”", 80, 60000,
-			kurumi_danmaku, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+			NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_vampvape)
 		},
 	},
 
 	.extra.vlads_army = {
 		{ 0,  1,  2,  3}, AT_ExtraSpell, "Blood Magic “Vlad’s Army”", 60, 50000,
-		kurumi_extra, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4
+		NULL, kurumi_spell_bg, BOSS_DEFAULT_GO_POS, 4, TASK_INDIRECT_INIT(BossAttack, kurumi_vladsarmy)
 	},
 };
 
@@ -69,6 +69,8 @@ static void stage4_start(void) {
 	stage4_drawsys_init();
 	stage4_bg_init_fullstage();
 	stage_start_bgm("stage4");
+	stage_set_voltage_thresholds(170, 340, 660, 1040);
+	INVOKE_TASK(stage4_timeline);
 }
 
 static void stage4_spellpractice_start(void) {
@@ -144,7 +146,6 @@ StageProcs stage4_procs = {
 	.preload = stage4_preload,
 	.end = stage4_end,
 	.draw = stage4_draw,
-	.event = stage4_events,
 	.shader_rules = stage4_bg_effects,
 	.spellpractice_procs = &stage4_spell_procs,
 };
