@@ -107,7 +107,7 @@ linux/tar:
 # note: for building on Linux, not directly on Windows
 windows/setup: setup/check/prefix
 	meson setup build/windows \
-		--cross-file ci/windows-llvm_mingw-x86_64-build-release.ini \
+		--cross-file misc/ci/windows-llvm_mingw-x86_64-build-release.ini \
 		$(PREFIX)
 
 windows/compile:
@@ -127,7 +127,7 @@ windows/all: clean windows/setup windows/installer
 
 macos/setup:
 	meson setup build/mac \
-		--native-file ci/macos-x86_64-build-release.ini
+		--native-file misc/ci/macos-x86_64-build-release.ini
 
 macos/dmg:
 	meson compile dmg -C build/mac
@@ -154,11 +154,11 @@ switch:
 
 docker/angle:
 	@echo "To build this on Windows, you must have '"storage-opt": ["size=130GB"]' in your daemon.json for Docker"
-	docker build ci/ -m 12GB -t taisei-angle-builder -f "ci/Dockerfile.angle" --build-arg ANGLE_VERSION=4484 # build the image, this can take 2 hours so please wait warmly
+	docker build misc/ci/ -m 12GB -t taisei-angle-builder -f "misc/ci/Dockerfile.angle" --build-arg ANGLE_VERSION=4484 # build the image, this can take 2 hours so please wait warmly
 	docker run -m 4GB --name taisei-temp taisei-angle-builder:latest # start up a container that dies immediately because of no entrypoint
 	docker cp taisei-temp:"C:\\GOOGLE\\angle\\out\\Release\\libGLESv2.dll" ./ # copy locally
 	docker cp taisei-temp:"C:\\GOOGLE\\angle\\out\\Release\\libEGL.dll" ./ # copy locally
 	docker rm taisei-temp # remove unneeded container (the image is still available as taisei-angle-builder)
 
 docker/windows:
-	docker build . -m 8GB -t taisei-windows-builder -f "ci/Dockerfile.windows"
+	docker build . -m 8GB -t taisei-windows-builder -f "misc/ci/Dockerfile.windows"
