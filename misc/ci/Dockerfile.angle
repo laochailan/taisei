@@ -204,5 +204,5 @@ RUN git checkout chromium/$Env:ANGLE_VERSION
 WORKDIR C:\GOOGLE\angle
 
 # compile ANGLE
-RUN gn gen out/Release; `
-	autoninja -C out/Release
+RUN gn gen out/Release --args="is_debug=false dcheck_always_on=false target_cpu=x64"; `
+	autoninja -C out/Release libGLESv2 libEGL
