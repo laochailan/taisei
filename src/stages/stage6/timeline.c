@@ -19,18 +19,6 @@
 
 #include "common_tasks.h"
 
-TASK(boss_appear_stub, NO_ARGS) {
-	log_warn("FIXME");
-}
-
-static void stage6_dialog_pre_boss(void) {
-	PlayerMode *pm = global.plr.mode;
-	Stage6PreBossDialogEvents *e;
-	INVOKE_TASK_INDIRECT(Stage6PreBossDialog, pm->dialog->Stage6PreBoss, &e);
-	INVOKE_TASK_WHEN(&e->boss_appears, boss_appear_stub);
-	INVOKE_TASK_WHEN(&e->music_changes, common_start_bgm, "stage6boss_phase1");
-}
-
 static void stage6_dialog_pre_final(void) {
 	PlayerMode *pm = global.plr.mode;
 	INVOKE_TASK_INDIRECT(Stage6PreFinalDialog, pm->dialog->Stage6PreFinal);
@@ -237,9 +225,40 @@ static void elly_begin_toe(Boss *b, int t) {
 		stage_start_bgm("stage6boss_phase3");
 	}
 }
+*/
 
-static void elly_goto_center(Boss *b, int t) {
-	GO_TO(b, BOSS_DEFAULT_GO_POS, 0.05);
+TASK(boss_appear, { BoxedBoss boss; }) {
+	Boss *boss = NOT_NULL(ENT_UNBOX(ARGS.boss));
+	boss->move = move_towards_power(BOSS_DEFAULT_GO_POS, 0.3, 0.5);
+}
+
+TASK_WITH_INTERFACE(elly_goto_center, BossAttack) {
+	Boss *boss = INIT_BOSS_ATTACK();
+	BEGIN_BOSS_ATTACK();
+	boss->move = move_towards_power(BOSS_DEFAULT_GO_POS, 0.3, 0.5);
+}
+
+TASK(spawn_boss, NO_ARGS) {
+	STAGE_BOOKMARK(boss);
+
+	Boss *boss = global.boss = stage6_spawn_elly(VIEWPORT_W + 180 + 100.0*I);
+
+	PlayerMode *pm = global.plr.mode;
+	Stage6PreBossDialogEvents *e;
+	INVOKE_TASK_INDIRECT(Stage6PreBossDialog, pm->dialog->Stage6PreBoss, &e);
+	INVOKE_TASK_WHEN(&e->boss_appears, boss_appear, ENT_BOX(boss));
+	INVOKE_TASK_WHEN(&e->music_changes, common_start_bgm, "stage6boss_phase1");
+	WAIT_EVENT(&global.dialog->events.fadeout_began);
+
+	boss_add_attack_task(boss, AT_Normal, "Cards1", 60, 30000, TASK_INDIRECT(BossAttack, stage2_boss_nonspell_1), NULL);
+	boss_add_attack_from_info(boss, &stage2_spells.boss.amulet_of_harm, false);
+	boss_add_attack_task(boss, AT_Normal, "Cards2", 60, 20000, TASK_INDIRECT(BossAttack, stage2_boss_nonspell_2), NULL);
+	boss_add_attack_from_info(boss, &stage2_spells.boss.bad_pick, false);
+	boss_add_attack_task(boss, AT_Normal, "Cards3", 60, 45000, TASK_INDIRECT(BossAttack, stage2_boss_nonspell_3), NULL);
+	boss_add_attack_from_info(boss, &stage2_spells.boss.wheel_of_fortune, false);
+	boss_add_attack_from_info(boss, &stage2_spells.extra.monty_hall_danmaku, false);
+
+	boss_start_attack(boss, boss->attacks);
 }
 
 static Boss* create_elly(void) {
@@ -268,7 +287,7 @@ static Boss* create_elly(void) {
 
 	return b;
 }
-*/
+
 DEFINE_EXTERN_TASK(stage6_timeline) {
 
 	INVOKE_TASK_DELAYED(100, hacker_fairy, .pos = VIEWPORT_W / 2.0, .move = move_linear(2.0 * I));
@@ -310,7 +329,10 @@ DEFINE_EXTERN_TASK(stage6_timeline) {
 
 
 	INVOKE_TASK_DELAYED(2300, scythe_mid, .pos = -100 + I * 300);
-/*
+
+	WAIT(3800);
+	INVOKE_TASK(spawn_boss);
+	/*
 	AT(3800) {
 		stage_unlock_bgm("stage6");
 		global.boss = create_elly();
