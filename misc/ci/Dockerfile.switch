@@ -1,0 +1,56 @@
+FROM debian:buster-slim AS stage1
+
+LABEL maintainer="Alice D. <alice@starwitch.productions>"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        apt-utils \
+        sudo \
+        ca-certificates \
+        pkg-config \
+        curl \
+        wget \
+        bzip2 \
+        xz-utils \
+        make \
+        git \
+        bsdtar \
+        doxygen \
+        gnupg \
+        build-essential libsdl2-dev libogg-dev \
+        libopusfile-dev \
+        libpng-dev \
+        libzip-dev \
+        libx11-dev \
+        libwayland-dev \
+        python3-docutils \
+        python3-pip \
+        libwebp-dev \
+        libfreetype6-dev \
+        libzstd-dev \
+        gdebi-core \
+        cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install \
+        meson==0.56.2 \
+        ninja \
+        zstandard
+
+RUN wget https://github.com/devkitPro/pacman/releases/latest/download/devkitpro-pacman.amd64.deb && \
+    gdebi -n devkitpro-pacman.amd64.deb && \
+    rm devkitpro-pacman.amd64.deb && \
+    dkp-pacman -Scc --noconfirm
+
+ENV DEVKITPRO=/opt/devkitpro
+ENV PATH=${DEVKITPRO}/tools/bin:$PATH
+
+RUN ln -s /proc/self/mounts /etc/mtab
+
+RUN dkp-pacman -Syyu --noconfirm switch-dev switch-portlibs devkitpro-pkgbuild-helpers switch-pkg-config && \
+    dkp-pacman -S --needed --noconfirm `dkp-pacman -Slq dkp-libs | grep '^switch-'` && \
+    dkp-pacman -Scc --noconfirm
+
