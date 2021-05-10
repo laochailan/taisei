@@ -14,7 +14,7 @@ RUN apt update \
 	python3-pip \
 	zlibc
 
-RUN pip3 install meson==0.55.3 ninja zstandard
+RUN pip3 install meson==0.56.2 ninja zstandard
 
 # install NSIS 3.x for better compatibility
 # it still works even tho it's from a later version
@@ -37,4 +37,9 @@ COPY . .
 
 ENV TAISEI_PREFIX=/opt/taisei-exe
 
-RUN make submodule-update windows/setup windows/compile windows/installer
+RUN meson setup build/windows \
+        --prefix=$(pwd)/build-release \
+        --cross-file $(pwd)/misc/ci/windows-llvm_mingw-x86-build-release.ini \
+        --cross-file $(pwd)/misc/ci/windows-x86-ephemeral-release-ci.ini
+
+RUN meson compile nsis -C build/windows --verbose
