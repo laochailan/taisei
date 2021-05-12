@@ -1,4 +1,6 @@
-FROM ubuntu:focal as taisei_builder
+FROM ubuntu:focal
+
+LABEL maintainer="Alice D. <alice@starwitch.productions>"
 
 ENV LANG C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
@@ -21,16 +23,6 @@ RUN apt update && \
 	git
 
 RUN pip3 install \
-	meson==0.55.3 \
+	meson==0.56.2 \
 	ninja \
 	zstandard
-
-FROM taisei_builder
-
-RUN mkdir -p /usr/src/taisei
-
-WORKDIR /usr/src/taisei
-
-COPY . .
-
-RUN make all
