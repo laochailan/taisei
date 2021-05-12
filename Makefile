@@ -81,6 +81,9 @@ compile:
 install:
 	meson install -C build/
 
+zip:
+	ninja zip -C build/
+
 clean:
 	rm -rf build/
 
@@ -95,10 +98,21 @@ all/debug: clean setup setup/developer setup/debug setup/build-speed compile ins
 # linux #
 #########
 
-linux/setup: setup
+linux/setup:
+	meson setup build/linux \
+		--native-file misc/ci/linux-x86_64-build-release.ini \
+		$(PREFIX)
 
-linux/tar:
-	meson compile xz -C build/
+linux/compile:
+	meson compile -C build/linux
+
+linux/txz:
+	ninja xz -C build/linux
+
+linux/install:
+	meson install -C build/linux
+
+linux/all: clean linux/setup linux/compile linux/install
 
 ###########
 # windows #
@@ -114,10 +128,10 @@ windows/compile:
 	meson compile -C build/windows
 
 windows/zip:
-	meson compile zip -C build/windows
+	ninja zip -C build/windows
 
 windows/installer:
-	meson compile nsis -C build/windows
+	ninja nsis -C build/windows
 
 windows/all: clean windows/setup windows/installer
 
@@ -127,13 +141,19 @@ windows/all: clean windows/setup windows/installer
 
 macos/setup:
 	meson setup build/mac \
-		--native-file misc/ci/macos-x86_64-build-release.ini
+		--native-file misc/ci/macos-x86_64-build-release.ini \
+		$(PREFIX)
+
+macos/compile:
+	meson compile -C build/mac
 
 macos/dmg:
-	meson compile dmg -C build/mac
+	ninja dmg -C build/mac
 
 macos/install:
 	meson install -C build/mac
+
+macos/all: clean macos/setup macos/compile macos/install
 
 ##########
 # switch #
@@ -143,22 +163,13 @@ switch/setup:
 	mkdir -p build/nx
 	switch/crossfile.sh > build/nx/crossfile.txt
 	meson setup build/nx \
-		--cross-file="build/nx/crossfile.txt"
+		--cross-file="build/nx/crossfile.txt" \
+		$(PREFIX)
 
-switch:
+switch/compile:
 	meson compile -C build/nx
 
-##########
-# docker #
-##########
+switch/zip:
+	ninja zip -C build/nx
 
-docker/angle:
-	@echo "To build this on Windows, you must have '"storage-opt": ["size=130GB"]' in your daemon.json for Docker"
-	docker build misc/ci/ -m 12GB -t taisei-angle-builder -f "misc/ci/Dockerfile.angle" --build-arg ANGLE_VERSION=4484 # build the image, this can take 2 hours so please wait warmly
-	docker run -m 4GB --name taisei-temp taisei-angle-builder:latest # start up a container that dies immediately because of no entrypoint
-	docker cp taisei-temp:"C:\\GOOGLE\\angle\\out\\Release\\libGLESv2.dll" ./ # copy locally
-	docker cp taisei-temp:"C:\\GOOGLE\\angle\\out\\Release\\libEGL.dll" ./ # copy locally
-	docker rm taisei-temp # remove unneeded container (the image is still available as taisei-angle-builder)
-
-docker/windows:
-	docker build . -m 8GB -t taisei-windows-builder -f "misc/ci/Dockerfile.windows"
+switch/all: clean switch/setup switch/compile switch/zip
