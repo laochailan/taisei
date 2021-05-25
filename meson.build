@@ -1,6 +1,6 @@
 project('taisei', 'c',
     license : 'MIT',
-    version : 'v1.3.50',
+    version : 'v1.4-dev',
     meson_version : '>=0.53.0',
     default_options : [
         # Should really be c11, but gnu11 is a safer default because everything is terrible.
