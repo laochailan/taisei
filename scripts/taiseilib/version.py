@@ -68,8 +68,8 @@ def get(*, rootdir=None, fallback=None, args=common.default_args):
             universal_newlines=True
         ).strip()
 
-        if '-' in version_str:
-            version_str += '-' + subprocess.check_output(
+        if '_' in version_str:
+            version_str += '_' + subprocess.check_output(
                 shlex.split('git rev-parse --abbrev-ref HEAD'),
                 cwd=str(rootdir),
                 universal_newlines=True

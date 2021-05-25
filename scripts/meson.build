@@ -67,30 +67,30 @@ dist_name = 'Taisei-@0@-@1@-@2@'.format(dist_version_string, package_system_name
 dist_command = [python_thunk, dist_script, common_taiseilib_args]
 dist_prefix_args = ['--prefix=@0@'.format(dist_name)]
 
-dist_release_arg = []
+dist_release_args = []
 if get_option('release_files')
-    dist_release_arg = ['--release']
+    dist_release_args = ['--release']
 endif
 
 zip_filename = '@0@.zip'.format(dist_name)
 zip_outpath = join_paths(meson.build_root(), zip_filename)
-zip_command = [dist_command, '--format=zip', meson.build_root(), zip_outpath]
+zip_command = [dist_command, '--format=zip', dist_release_args, meson.build_root(), zip_outpath]
 
 txz_filename = '@0@.tar.xz'.format(dist_name)
 txz_outpath = join_paths(meson.build_root(), txz_filename)
-txz_command = [dist_command, '--format=xztar', dist_prefix_args, dist_release_arg, meson.build_root(), txz_outpath]
+txz_command = [dist_command, '--format=xztar', dist_prefix_args, dist_release_args, meson.build_root(), txz_outpath]
 
 tgz_filename = '@0@.tar.gz'.format(dist_name)
 tgz_outpath = join_paths(meson.build_root(), tgz_filename)
-tgz_command = [dist_command, '--format=gztar', dist_prefix_args, dist_release_arg, meson.build_root(), tgz_outpath]
+tgz_command = [dist_command, '--format=gztar', dist_prefix_args, dist_release_args, meson.build_root(), tgz_outpath]
 
 tbz_filename = '@0@.tar.bz2'.format(dist_name)
 tbz_outpath = join_paths(meson.build_root(), tbz_filename)
-tbz_command = [dist_command, '--format=bztar', dist_prefix_args, dist_release_arg, meson.build_root(), tbz_outpath]
+tbz_command = [dist_command, '--format=bztar', dist_prefix_args, dist_release_args, meson.build_root(), tbz_outpath]
 
 tar_filename = '@0@.tar'.format(dist_name)
 tar_outpath = join_paths(meson.build_root(), tar_filename)
-tar_command = [dist_command, '--format=tar', dist_prefix_args, dist_release_arg, meson.build_root(), tar_outpath]
+tar_command = [dist_command, '--format=tar', dist_prefix_args, dist_release_args, meson.build_root(), tar_outpath]
 
 dmg_script = files('macos-gen-dmg.py')
 dmg_filename = '@0@.dmg'.format(dist_name)
@@ -126,7 +126,8 @@ if package_system_name == 'windows'
         common_taiseilib_defs,
         nsis_defs,
         meson.build_root(),
-        files('taisei.nsi.in')
+        files('taisei.nsi.in'),
+        dist_release_args
     ]
 endif
 

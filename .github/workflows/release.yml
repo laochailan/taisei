@@ -5,6 +5,7 @@ on:
       - v[0-9].[0-9]**
     tags:
       - v[0-9].[0-9]**
+      - v[0-9].[0-9]**-**
 
 env:
   MESON_VERSION: '0.56.2'
@@ -46,13 +47,13 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: 'recursive'
-        fetch-depth: 0
+        fetch-depth: 1
 
     - name: Import GPG Key
       uses: taisei-project/ghaction-import-gpg@v3
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      with:
+        gpg-private-key: ${{ secrets.gpg_private_key }}
+        passphrase: ${{ secrets.gpg_passphrase }}
 
     - name: Set Build Env
       id: vars
@@ -136,13 +137,13 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: "recursive"
-        fetch-depth: 0
+        fetch-depth: 1
 
     - name: Import GPG Key
       uses: taisei-project/ghaction-import-gpg@v3
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      with:
+        gpg-private-key: ${{ secrets.gpg_private_key }}
+        passphrase: ${{ secrets.gpg_passphrase }}
 
     - name: Set Build Env
       id: vars
@@ -208,19 +209,19 @@ jobs:
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
-        gnupg
+        python-gnupg
 
     - name: Checkout Code
       uses: actions/checkout@v2
       with:
         submodules: "recursive"
-        fetch-depth: 0
+        fetch-depth: 1
 
     - name: Import GPG Key
       uses: taisei-project/ghaction-import-gpg@v3
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      with:
+        gpg-private-key: ${{ secrets.gpg_private_key }}
+        passphrase: ${{ secrets.gpg_passphrase }}
 
     - name: Set Build Env
       id: vars
@@ -310,7 +311,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: "recursive"
-        fetch-depth: 0
+        fetch-depth: 1
 
     - name: Checkout ANGLE DLLs
       uses: actions/checkout@v2
@@ -320,9 +321,9 @@ jobs:
 
     - name: Import GPG Key
       uses: taisei-project/ghaction-import-gpg@v3
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      with:
+        gpg-private-key: ${{ secrets.gpg_private_key }}
+        passphrase: ${{ secrets.gpg_passphrase }}
 
     - name: Set Build Env
       id: vars
@@ -417,7 +418,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: "recursive"
-        fetch-depth: 0
+        fetch-depth: 1
 
     - name: Checkout ANGLE DLLs
       uses: actions/checkout@v2
@@ -427,9 +428,9 @@ jobs:
 
     - name: Import GPG Key
       uses: taisei-project/ghaction-import-gpg@v3
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      with:
+        gpg-private-key: ${{ secrets.gpg_private_key }}
+        passphrase: ${{ secrets.gpg_passphrase }}
 
     - name: Set Build Env
       id: vars
@@ -510,13 +511,13 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: 'recursive'
-        fetch-depth: 0
+        fetch-depth: 1
 
     - name: Import GPG Key
       uses: taisei-project/ghaction-import-gpg@v3
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      with:
+        gpg-private-key: ${{ secrets.gpg_private_key }}
+        passphrase: ${{ secrets.gpg_passphrase }}
 
     - name: Set Build Env
       id: vars
@@ -556,6 +557,7 @@ jobs:
         --cross-file misc/ci/emscripten-ephemeral-ci.ini
         --cross-file misc/ci/emscripten-build-test-ci.ini
         --prefix=$(pwd)/build-release
+        -Drelease_files=true
 
         meson configure
         -Dbuild.cpp_std=gnu++14
@@ -597,13 +599,13 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: 'recursive'
-        fetch-depth: 0
+        fetch-depth: 1
 
     - name: Import GPG Key
       uses: taisei-project/ghaction-import-gpg@v3
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      with:
+        gpg-private-key: ${{ secrets.gpg_private_key }}
+        passphrase: ${{ secrets.gpg_passphrase }}
 
     - name: Set Build Env
       id: vars
@@ -617,6 +619,7 @@ jobs:
         meson setup build/nx
         --cross-file=misc/ci/switch-crossfile-ci.ini
         --prefix=$(pwd)/build-release
+        -Drelease_files=true
 
     - name: Build
       run: meson compile -C build/nx --verbose

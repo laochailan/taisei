@@ -50,6 +50,12 @@ def main(args):
         type=Path,
     )
 
+    parser.add_argument('--release',
+        help='Generate release files',
+        dest='release',
+        action='store_true',
+    )
+
     add_configure_args(parser)
     add_common_args(parser)
 

@@ -87,7 +87,7 @@ def main(args):
         archive = Path(archive)
         archive.rename(args.output)
         if args.release:
-            gen_release_files(archive)
+            gen_release_files(args.output)
             print("Generated release files (.sig, .sha256sum)")
 
     print("Generated distribution archive {}".format(str(args.output)))
