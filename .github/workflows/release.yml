@@ -2,12 +2,12 @@ name: "Release Builds"
 on:
   push:
     branches:
-      - v*.*-rc
-      - v*.*-beta
+      - v*.**-rc
+      - v*.**-beta
     tags:
-      - v*.*
-      - v*.*-rc
-      - v*.*-beta
+      - v*.**
+      - v*.**-rc
+      - v*.**-beta
 
 env:
   MESON_VERSION: '0.56.2'

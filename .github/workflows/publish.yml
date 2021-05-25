@@ -17,9 +17,9 @@ on:
         required: true
         default: "false"
     tags:
-      - v*.*
-      - v*.*-rc
-      - v*.*-beta
+      - v*.**
+      - v*.**-rc
+      - v*.**-beta
 
 jobs:
   taisei-release:
