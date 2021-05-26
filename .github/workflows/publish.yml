@@ -1,4 +1,4 @@
-name: "Publish Release Binaries"
+name: Publish Builds
 
 # manual run only for publishing
 on:
@@ -9,21 +9,20 @@ on:
         description: "Release tag to publish. (i.e: v1.4, v1.4.1, etc)"
         default: "vx.y.z"
       draftRelease:
-        description: "Is this a 'draft' release? (MUST ANSWER EITHER 'true' OR 'false' AS STRING INPUT)"
+        description: "Is this a 'draft'/'*-beta' release? (MUST ANSWER EITHER 'true' OR 'false' AS STRING INPUT)"
         required: true
         default: "false"
       preRelease:
-        description: "Is this a 'prerelease'? (MUST ANSWER EITHER 'true' OR 'false' AS STRING INPUT)"
+        description: "Is this a 'prerelease'/'*-rc'? (MUST ANSWER EITHER 'true' OR 'false' AS STRING INPUT)"
         required: true
         default: "false"
     tags:
-      - v*.**
-      - v*.**-rc
-      - v*.**-beta
+      - v[0-9].[0-9]**
+      - v[0-9].[0-9]**-**
 
 jobs:
   taisei-release:
-    name: "Publish Actions"
+    name: Release Actions
     runs-on: ubuntu-20.04
     if: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
@@ -35,13 +34,12 @@ jobs:
       - name: Set Env Vars
         run: |
           echo "taisei_version=$(echo '${{ github.event.inputs.tag }}' | sed 's/^v//g')" >> $GITHUB_ENV
-          TAG=$(echo '${{ github.event.inputs.tag }}' | sed -E 's/-rc$|-beta$//g')
           # adds default changelog, which is blank, in case you forget so it doesn't hold up the whole release
-          # edit it on the actual GH release afterwards and commit what you write to the repo after
-          if [ ! -f "changelogs/changelog-$TAG.md" ]; then
+          # edit it on the actual GH release and commit what you write to master afterwards for posterity
+          if [ ! -f "changelogs/changelog-${{ github.event.inputs.tag }}.md" ]; then
             echo "taisei_changelog_tag=default" >> $GITHUB_ENV
           else
-            echo "taisei_changelog_tag=$TAG" >> $GITHUB_ENV
+            echo "taisei_changelog_tag=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
           fi
 
       - name: Import GPG Key

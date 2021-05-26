@@ -2,12 +2,11 @@ name: "Release Builds"
 on:
   push:
     branches:
-      - v*.**-rc
-      - v*.**-beta
+      - v[0-9].[0-9]**
+      - v[0-9].[0-9]**-**
     tags:
-      - v*.**
-      - v*.**-rc
-      - v*.**-beta
+      - v[0-9].[0-9]**
+      - v[0-9].[0-9]**-**
 
 env:
   MESON_VERSION: '0.56.2'
@@ -42,18 +41,18 @@ jobs:
         ninja
         zstandard
 
+    # NOTE: 'fetch-depth: 0' == "get all history", not "no history", confusingly
     - name: Checkout Code
       uses: actions/checkout@v2
       with:
         submodules: 'recursive'
         fetch-depth: 0
 
-    - name: Fetch Tags
-      run: git fetch --tags || true
-
     - name: Set Build Env
       id: vars
-      run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+      run: |
+        git fetch --force --tags # see: https://github.com/actions/checkout/issues/290
+        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
 
     - name: Configure
       run: >
@@ -119,12 +118,11 @@ jobs:
         submodules: "recursive"
         fetch-depth: 0
 
-    - name: Fetch Tags
-      run: git fetch --tags || true
-
     - name: Set Build Env
       id: vars
-      run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+      run: |
+        git fetch --force --tags
+        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
 
     - name: Configure
       run: >
@@ -193,6 +191,7 @@ jobs:
     - name: Set Build Env
       id: vars
       run: |
+        git fetch --force --tags
         echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
         echo "SDKROOT=$(xcrun --show-sdk-path --sdk macosx11.1)" >> $GITHUB_ENV
 
@@ -277,9 +276,6 @@ jobs:
         submodules: "recursive"
         fetch-depth: 0
 
-    - name: Fetch Tags
-      run: git fetch --tags || true
-
     - name: Checkout ANGLE DLLs
       uses: actions/checkout@v2
       with:
@@ -289,6 +285,7 @@ jobs:
     - name: Set Build Env
       id: vars
       run: |
+        git fetch --force --tags
         echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
         tee misc/ci/windows-x64-ephemeral-release-ci.ini <<EOF >/dev/null
         [constants]
@@ -381,9 +378,6 @@ jobs:
         submodules: "recursive"
         fetch-depth: 0
 
-    - name: Fetch Tags
-      run: git fetch --tags || true
-
     - name: Checkout ANGLE DLLs
       uses: actions/checkout@v2
       with:
@@ -393,6 +387,7 @@ jobs:
     - name: Set Build Env
       id: vars
       run: |
+        git fetch --force --tags
         echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
         tee misc/ci/windows-x86-ephemeral-release-ci.ini <<EOF >/dev/null
         [constants]
@@ -468,12 +463,11 @@ jobs:
         submodules: 'recursive'
         fetch-depth: 0
 
-    - name: Fetch Tags
-      run: git fetch --tags || true
-
     - name: Set Build Env
       id: vars
-      run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+      run: |
+        git fetch --force --tags
+        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
 
     - name: Fetch Cached Emscripten SDK
       id: emsdk-cache
@@ -550,12 +544,10 @@ jobs:
         submodules: 'recursive'
         fetch-depth: 0
 
-    - name: Fetch Tags
-      run: git fetch --tags || true
-
     - name: Set Build Env
       id: vars
       run: |
+        git fetch --force --tags
         echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
         switch/crossfile.sh > misc/ci/switch-crossfile-ci.ini
 
@@ -594,14 +586,12 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: 'recursive'
-        fetch-depth: 0
-
-    - name: Fetch Tags
-      run: git fetch --tags || true
 
     - name: Set Build Env
       id: vars
-      run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
+      run: |
+        git fetch --force --tags
+        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
 
     - name: Compress Source
       run: >
