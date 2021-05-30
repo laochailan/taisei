@@ -49,6 +49,7 @@ jobs:
           draft: ${{ github.event.inputs.draftRelease }}
           prerelease: ${{ github.event.inputs.preRelease }}
           artifacts: "releases/*${{ env.taisei_version }}*/*${{ env.taisei_version }}*"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # TODO: needs EMSCRIPTEN_RELEASE_DEPLOY_KEY as a project secret to publish to website repo
       # - name: Untar Emscripten
