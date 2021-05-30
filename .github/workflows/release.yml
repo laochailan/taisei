@@ -86,19 +86,32 @@ jobs:
       if: success()
       with:
         name: linux-x86_64-${{ steps.vars.outputs.tag }}-txz
-        path: build/linux/Taisei-${{ steps.vars.outputs.tag }}-linux-x86_64.tar.xz*
+        path: |
+          build/linux/Taisei-${{ steps.vars.outputs.tag }}-linux-x86_64.tar.xz
+          build/linux/Taisei-${{ steps.vars.outputs.tag }}-linux-x86_64.tar.xz.sig
+          build/linux/Taisei-${{ steps.vars.outputs.tag }}-linux-x86_64.tar.xz.sha256sum
         if-no-files-found: error
 
     - name: Package (Source)
       run: |
+        meson rewrite kwargs set project / version ${{ steps.vars.outputs.tag }}
+        meson --reconfigure build/linux
         meson dist -C build/linux --no-tests
+        sha256sum build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz \
+        > build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz.sha256sum
+        gpg --output build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz.sig \
+        --detach-sig build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz
+
 
     - name: Upload Artifact (Source)
       uses: actions/upload-artifact@v2
       if: success()
       with:
         name: source-${{ steps.vars.outputs.tag }}-txz
-        path: build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz*
+        path: |
+          build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz
+          build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz.sig
+          build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz.sha256sum
         if-no-files-found: error
 
     - name: Upload Log
@@ -176,7 +189,10 @@ jobs:
       if: success()
       with:
         name: macos-x86_64-${{ steps.vars.outputs.tag }}-dmg
-        path: build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-x86_64.dmg*
+        path: |
+          build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-x86_64.dmg
+          build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-x86_64.dmg.sig
+          build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-x86_64.dmg.sha256sum
         if-no-files-found: error
 
     - name: Upload Log
@@ -256,7 +272,10 @@ jobs:
       if: success()
       with:
         name: macos-aarch64-${{ steps.vars.outputs.tag }}-dmg
-        path: build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-aarch64.dmg*
+        path: |
+          build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-aarch64.dmg
+          build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-aarch64.dmg.sig
+          build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-aarch64.dmg.sha256sum
         if-no-files-found: error
 
     - name: Upload Log
@@ -593,7 +612,7 @@ jobs:
   switch-release-build:
     name: Switch (ARM64)
     runs-on: ubuntu-20.04
-    container: taiseiproject/switch-toolkit:20210520
+    container: taiseiproject/switch-toolkit:20210530
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2

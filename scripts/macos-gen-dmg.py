@@ -16,6 +16,12 @@ from sys import platform
 def main(args):
     parser = argparse.ArgumentParser(description='Generate a .dmg package for macOS.', prog=args[0])
 
+    parser.add_argument('--release',
+        help='Generate release files',
+        dest='release',
+        action='store_true',
+    )
+
     parser.add_argument('output',
         help='The destination .dmg file',
     )
@@ -25,12 +31,6 @@ def main(args):
         default=Path(os.getcwd()),
         type=Path,
         nargs='?',
-    )
-
-    parser.add_argument('--release',
-        help='Generate release files',
-        dest='release',
-        action='store_true',
     )
 
     args = parser.parse_args(args[1:])
