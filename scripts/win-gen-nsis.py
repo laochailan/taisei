@@ -15,6 +15,8 @@ from taiseilib.configure import (
     configure,
 )
 
+from taiseilib.releasefiles import gen_release_files
+
 from pathlib import (
     Path,
     PureWindowsPath,
@@ -91,6 +93,9 @@ def main(args):
         if proc.returncode != 0:
             raise MakeNSISError(proc.returncode)
 
+        if args.release:
+            gen_release_files(args.variables['OUTPUT'])
+            print("Generated release files (.sig, .sha256sum)")
 
 if __name__ == '__main__':
     run_main(main)

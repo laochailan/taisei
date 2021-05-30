@@ -15,7 +15,7 @@ env:
 
 jobs:
   linux-release:
-    name: Linux (x64)
+    name: "Linux (x64/Source)"
     runs-on: ubuntu-18.04
     steps:
     - name: Install Python
@@ -33,18 +33,26 @@ jobs:
         libx11-dev
         libwayland-dev
         python3-docutils
+        gnupg
 
         pip install
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
+        python-gnupg
 
-    # NOTE: 'fetch-depth: 0' == "get all history", not "no history", confusingly
+    # NOTE: confusingly, 'fetch-depth: 0' == "get all history", not "no history"
     - name: Checkout Code
       uses: actions/checkout@v2
       with:
         submodules: 'recursive'
         fetch-depth: 0
+
+    - name: Import GPG Key
+      uses: taisei-project/ghaction-import-gpg@v3
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
     - name: Set Build Env
       id: vars
@@ -69,15 +77,27 @@ jobs:
         TAISEI_NOPRELOAD: ${{ env.TAISEI_NOPRELOAD }}
         TAISEI_PRELOAD_REQUIRED: ${{ env.TAISEI_PRELOAD_REQUIRED }}
 
-    - name: Package
+    - name: Package (Binary)
       run: ninja txz -C build/linux --verbose
 
-    - name: Upload Artifact
+    - name: Upload Artifact (Binary)
       uses: actions/upload-artifact@v2
       if: success()
       with:
         name: linux-x86_64-${{ steps.vars.outputs.tag }}-txz
-        path: build/linux/Taisei-${{ steps.vars.outputs.tag }}-linux-x86_64.tar.xz
+        path: build/linux/Taisei-${{ steps.vars.outputs.tag }}-linux-x86_64.tar.xz*
+        if-no-files-found: error
+
+    - name: Package (Source)
+      run: |
+        meson dist -C build/linux --no-tests
+
+    - name: Upload Artifact (Source)
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: source-${{ steps.vars.outputs.tag }}-txz
+        path: build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz*
         if-no-files-found: error
 
     - name: Upload Log
@@ -104,17 +124,25 @@ jobs:
         docutils
         pygments
         create-dmg
+        gnupg
 
         pip install
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
+        python-gnupg
 
     - name: Checkout Code
       uses: actions/checkout@v2
       with:
         submodules: "recursive"
         fetch-depth: 0
+
+    - name: Import GPG Key
+      uses: taisei-project/ghaction-import-gpg@v3
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
     - name: Set Build Env
       id: vars
@@ -147,7 +175,7 @@ jobs:
       if: success()
       with:
         name: macos-x86_64-${{ steps.vars.outputs.tag }}-dmg
-        path: build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-x86_64.dmg
+        path: build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-x86_64.dmg*
         if-no-files-found: error
 
     - name: Upload Log
@@ -174,17 +202,25 @@ jobs:
         docutils
         pygments
         create-dmg
+        gnupg
 
         pip install
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
+        gnupg
 
     - name: Checkout Code
       uses: actions/checkout@v2
       with:
         submodules: "recursive"
         fetch-depth: 0
+
+    - name: Import GPG Key
+      uses: taisei-project/ghaction-import-gpg@v3
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
     - name: Set Build Env
       id: vars
@@ -219,7 +255,7 @@ jobs:
       if: success()
       with:
         name: macos-aarch64-${{ steps.vars.outputs.tag }}-dmg
-        path: build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-aarch64.dmg
+        path: build/macos/Taisei-${{ steps.vars.outputs.tag }}-macOS-aarch64.dmg*
         if-no-files-found: error
 
     - name: Upload Log
@@ -248,11 +284,13 @@ jobs:
         git
         wget
         nsis
+        gnupg
 
         pip3 install
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
+        python-gnupg
 
     # install 3.x on top of older Ubuntu manually as PPA does not exist
     - name: Install NSIS 3.x
@@ -279,6 +317,12 @@ jobs:
       with:
         repository: taisei-project/angle-compiled
         path: angle-compiled
+
+    - name: Import GPG Key
+      uses: taisei-project/ghaction-import-gpg@v3
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
     - name: Set Build Env
       id: vars
@@ -309,7 +353,7 @@ jobs:
       if: success()
       with:
         name: windows-x86_64-${{ steps.vars.outputs.tag }}-setup-exe
-        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-setup-x86_64.exe
+        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-setup-x86_64.exe*
         if-no-files-found: error
 
     - name: Package (ZIP)
@@ -320,7 +364,7 @@ jobs:
       if: success()
       with:
         name: windows-x86_64-${{ steps.vars.outputs.tag }}-zip
-        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-windows-x86_64.zip
+        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-windows-x86_64.zip*
         if-no-files-found: error
 
     - name: Upload Log
@@ -349,21 +393,20 @@ jobs:
         git
         wget
         nsis
+        gnupg
 
         pip3 install
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
+        python-gnupg
 
-    # install 3.x on top of older Ubuntu
-    # 3.x is only available for 20.04+, so --force-all the install (it still works but complains about libc versions)
+    # NSIS 3.x is only available for Ubuntu 20.04+ (it complains about libc versions but it still works just fine)
     - name: Install NSIS 3.x
       run: >
-        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-pluginapi_3.05-2_all.deb -P /tmp
-
-        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-common_3.05-2_all.deb -P /tmp
-
-        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis_3.05-2_amd64.deb -P /tmp
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-pluginapi_3.05-2_all.deb
+        http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-common_3.05-2_all.deb
+        http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis_3.05-2_amd64.deb -P /tmp
 
         dpkg -i --force-all
         /tmp/nsis-common_3.05-2_all.deb
@@ -381,6 +424,12 @@ jobs:
       with:
         repository: taisei-project/angle-compiled
         path: angle-compiled
+
+    - name: Import GPG Key
+      uses: taisei-project/ghaction-import-gpg@v3
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
     - name: Set Build Env
       id: vars
@@ -411,7 +460,7 @@ jobs:
       if: success()
       with:
         name: windows-x86-${{ steps.vars.outputs.tag }}-setup-exe
-        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-setup-x86.exe
+        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-setup-x86.exe*
         if-no-files-found: error
 
     - name: Package (ZIP)
@@ -422,7 +471,7 @@ jobs:
       if: success()
       with:
         name: windows-x86-${{ steps.vars.outputs.tag }}-zip
-        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-windows-x86.zip
+        path: build/windows/Taisei-${{ steps.vars.outputs.tag }}-windows-x86.zip*
         if-no-files-found: error
 
     - name: Upload Log
@@ -449,17 +498,25 @@ jobs:
         python3-docutils
         python3-pip
         git
+        gnupg
 
         pip install
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
+        python-gnupg
 
     - name: Checkout Code
       uses: actions/checkout@v2
       with:
         submodules: 'recursive'
         fetch-depth: 0
+
+    - name: Import GPG Key
+      uses: taisei-project/ghaction-import-gpg@v3
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
     - name: Set Build Env
       id: vars
@@ -521,7 +578,7 @@ jobs:
       if: success()
       with:
         name: emscripten-wasm32-${{ steps.vars.outputs.tag }}-txz
-        path: build/emscripten/Taisei-${{ steps.vars.outputs.tag }}-emscripten-wasm32.tar.xz
+        path: build/emscripten/Taisei-${{ steps.vars.outputs.tag }}-emscripten-wasm32.tar.xz*
         if-no-files-found: error
 
     - name: Upload Log
@@ -541,6 +598,12 @@ jobs:
       with:
         submodules: 'recursive'
         fetch-depth: 0
+
+    - name: Import GPG Key
+      uses: taisei-project/ghaction-import-gpg@v3
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
     - name: Set Build Env
       id: vars
@@ -566,7 +629,7 @@ jobs:
       if: success()
       with:
         name: switch-aarch64-${{ steps.vars.outputs.tag }}-zip
-        path: build/nx/Taisei-${{ steps.vars.outputs.tag }}-switch-aarch64.zip
+        path: build/nx/Taisei-${{ steps.vars.outputs.tag }}-switch-aarch64.zip*
         if-no-files-found: error
 
     - name: Upload Log
@@ -575,32 +638,3 @@ jobs:
         name: taisei_switch_release_log
         path: build/nx/meson-logs/meson-log.txt
         if-no-files-found: warn
-
-  source-release:
-    name: Source (Archive)
-    runs-on: ubuntu-20.04
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v2
-      with:
-        submodules: 'recursive'
-
-    - name: Set Build Env
-      id: vars
-      run: |
-        git fetch --force --tags
-        echo ::set-output name=tag::${GITHUB_REF#refs/tags/v}
-
-    - name: Compress Source
-      run: >
-        tar --exclude-vcs -cf - ./ |
-        xz -9e --threads=8 -c - >
-        Taisei-${{ steps.vars.outputs.tag }}-source.tar.xz
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v2
-      if: success()
-      with:
-        name: source-${{ steps.vars.outputs.tag }}-txz
-        path: Taisei-${{ steps.vars.outputs.tag }}-source.tar.xz
-        if-no-files-found: error
