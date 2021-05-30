@@ -50,13 +50,13 @@ jobs:
           prerelease: ${{ github.event.inputs.preRelease }}
           artifacts: "releases/*${{ env.taisei_version }}*/*${{ env.taisei_version }}*"
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: "refs/tags/v${{ env.taisei_version }}"
+          tag: ${{ github.event.inputs.tag }}
 
       # TODO: needs EMSCRIPTEN_RELEASE_DEPLOY_KEY as a project secret to publish to website repo
       # - name: Untar Emscripten
       #   run: >
-      #     tar -xpf /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz
-      #     -C /opt/emscripten-wasm32-${{ env.taisei_version }}-txz
+      #     tar -xpf releases/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32.tar.xz
+      #     -C releases/emscripten-wasm32-${{ env.taisei_version }}-txz
 
       # - name: Deploy to GitHub Pages (Stable)
       #   uses: JamesIves/github-pages-deploy-action@releases/v4
@@ -64,7 +64,7 @@ jobs:
       #   with:
       #     branch: live
       #     target-folder: ./play/stable/
-      #     folder: /opt/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32
+      #     folder: releases/emscripten-wasm32-${{ env.taisei_version }}-txz/Taisei-${{ env.taisei_version }}-emscripten-wasm32
       #     repository-name: taisei-project/taisei-website-new
       #     commit-message: "${{ github.repository }}@${{ github.sha }} - publishing stable build ${{ env.taisei_version }}"
       #     ssh-key: ${{ secrets.EMSCRIPTEN_RELEASE_DEPLOY_KEY }}
