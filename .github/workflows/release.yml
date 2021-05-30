@@ -94,7 +94,7 @@ jobs:
 
     - name: Package (Source)
       run: |
-        meson rewrite kwargs set project / version ${{ steps.vars.outputs.tag }}
+        meson rewrite kwargs set project / version v${{ steps.vars.outputs.tag }}
         meson --reconfigure build/linux
         meson dist -C build/linux --no-tests
         sha256sum build/linux/meson-dist/taisei-v${{ steps.vars.outputs.tag }}.tar.xz \
