@@ -4,7 +4,6 @@ from taiseilib.tempinstall import (
     temp_install,
 )
 
-
 from taiseilib.common import (
     add_common_args,
     run_main,
