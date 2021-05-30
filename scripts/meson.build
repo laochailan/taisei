@@ -94,7 +94,7 @@ tar_command = [dist_command, '--format=tar', dist_prefix_args, dist_release_args
 
 dmg_script = files('macos-gen-dmg.py')
 dmg_filename = '@0@.dmg'.format(dist_name)
-dmg_command = [python_thunk, dmg_script, join_paths(meson.build_root(), dmg_filename), meson.build_root(), dist_release_arg]
+dmg_command = [python_thunk, dmg_script, join_paths(meson.build_root(), dmg_filename), dist_release_args, meson.build_root()]
 
 angle_enabled = get_option('install_angle')
 
