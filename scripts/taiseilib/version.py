@@ -32,7 +32,7 @@ class Version(object):
         match = self.regex.match(version_str)
 
         if match is None:
-            raise VersionFormatError("Error: Malformed version string '{0}'. Please use the following format: [v]major[.minor[.patch]][-tweak][-extrainfo]".format(version_str))
+            raise VersionFormatError("Error: Malformed version string '{0}'. Please use the following format: [v]major[.minor[.patch]][-prerelease][-tweak][-extrainfo]".format(version_str))
 
         def mkint(val):
             if val is None:
@@ -68,8 +68,8 @@ def get(*, rootdir=None, fallback=None, args=common.default_args):
             universal_newlines=True
         ).strip()
 
-        prerelease_strings = ['-rc', '-beta', '-alpha']
-
+        # does not append -HEAD if the release is tagged -beta, -rc, etc.
+        prerelease_strings = ['-rc', '-beta', '-alpha', '-pre']
         if '-' in version_str and not [prerelease for prerelease in prerelease_strings if(prerelease in version_str)]:
             version_str += '-' + subprocess.check_output(
                 shlex.split('git rev-parse --abbrev-ref HEAD'),
