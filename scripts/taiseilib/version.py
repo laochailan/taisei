@@ -93,7 +93,7 @@ def main(args):
     parser = argparse.ArgumentParser(description='Print the Taisei version.', prog=args[0])
 
     parser.add_argument('format', type=str, nargs='?', default='{string}',
-        help='format string; variables: major, minor, patch, tweak, note, string, full_string')
+        help='format string; variables: major, minor, patch, prerelease, tweak, note, string, full_string')
 
     common.add_common_args(parser)
 
