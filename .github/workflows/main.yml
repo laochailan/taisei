@@ -223,7 +223,6 @@ jobs:
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
-        python-gnupg
 
     - name: Fetch Cached Emscripten SDK
       id: emsdk-cache
