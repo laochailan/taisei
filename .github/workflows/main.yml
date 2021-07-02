@@ -223,6 +223,7 @@ jobs:
         meson==${{ env.MESON_VERSION }}
         ninja
         zstandard
+        python-gnupg
 
     - name: Fetch Cached Emscripten SDK
       id: emsdk-cache
@@ -240,21 +241,25 @@ jobs:
         ${{ env.EM_CACHE_FOLDER }}/emsdk activate ${{ env.EM_VERSION }}
 
     - name: Verify Emscripten SDK
-      run: |
+      run: >
         source ${{ env.EM_CACHE_FOLDER }}/emsdk_env.sh
+
         emcc -v
-        tee misc/ci/emscripten-ephemeral-ci.ini <<EOF >/dev/null
-        [constants]
-        toolchain = '$(pwd)/${{ env.EM_CACHE_FOLDER }}/upstream/emscripten/'
-        EOF
+
+        sed -i
+        "s+toolchain = ''+toolchain = '$(pwd)/${{ env.EM_CACHE_FOLDER }}/upstream/emscripten/'+g"
+        misc/ci/emscripten-build.ini
+
+        echo "Emscripten Test Machine File:"
+
+        cat misc/ci/emscripten-build.ini
 
     - name: Configure
       run: >
         source ${{ env.EM_CACHE_FOLDER }}/emsdk_env.sh
 
         meson setup build/
-        --cross-file misc/ci/emscripten-ephemeral-ci.ini
-        --cross-file misc/ci/emscripten-build-test-ci.ini
+        --cross-file misc/ci/emscripten-build.ini
         --prefix=$(pwd)/build-test
 
         meson configure
@@ -277,7 +282,7 @@ jobs:
     name: Switch (ARM64)
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-20.04
-    container: taiseiproject/switch-toolkit:20210520
+    container: taiseiproject/switch-toolkit:20210530
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2

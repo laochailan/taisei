@@ -197,3 +197,10 @@ option(
     value : true,
     description : 'Allow use of some GNU C extensions (if supported by compiler)'
 )
+
+option(
+    'release_files',
+    type : 'boolean',
+    value : false,
+    description : 'Generate .sig and .sha256sum for releases'
+)

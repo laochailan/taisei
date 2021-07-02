@@ -33,6 +33,9 @@ pkgconfig = '$(bin_path pkg-config)'
 elf2nro = '$(which elf2nro)'
 nacptool = '$(which nacptool)'
 
+[project options]
+deprecations_warnings = 'no-error'
+
 [built-in options]
 c_args = [$(meson_arg_list $CPPFLAGS $CFLAGS)]
 c_link_args = [$(meson_arg_list $LDFLAGS $LIBS $ADDITIONAL_LINK_FLAGS)]

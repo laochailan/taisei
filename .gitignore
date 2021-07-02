@@ -1,6 +1,8 @@
 build/
 winbuild/
 osxbuild/
+releases/
+emsdk/
 .ctagsdb
 .*DS_Store
 __pycache__

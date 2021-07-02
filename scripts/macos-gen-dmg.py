@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from taiseilib.tempinstall import temp_install
+from taiseilib.releasefiles import gen_release_files
 from taiseilib.common import run_main
 
 from pathlib import Path
@@ -14,6 +15,12 @@ from sys import platform
 
 def main(args):
     parser = argparse.ArgumentParser(description='Generate a .dmg package for macOS.', prog=args[0])
+
+    parser.add_argument('--release',
+        help='Generate release files',
+        dest='release',
+        action='store_true',
+    )
 
     parser.add_argument('output',
         help='The destination .dmg file',
@@ -55,6 +62,9 @@ def main(args):
             ]
 
         subprocess.check_call(command, cwd=str(install_path))
+        if args.release:
+            gen_release_files(args.output)
+            print('\nGenerated release files (.sig, .sha256sum)')
 
         print('\nPackage generated:', args.output)
 

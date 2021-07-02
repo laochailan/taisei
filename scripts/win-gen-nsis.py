@@ -15,6 +15,8 @@ from taiseilib.configure import (
     configure,
 )
 
+from taiseilib.releasefiles import gen_release_files
+
 from pathlib import (
     Path,
     PureWindowsPath,
@@ -46,6 +48,12 @@ def main(args):
     parser.add_argument('script_template',
         help='The NSIS script template',
         type=Path,
+    )
+
+    parser.add_argument('--release',
+        help='Generate release files',
+        dest='release',
+        action='store_true',
     )
 
     add_configure_args(parser)
@@ -91,6 +99,9 @@ def main(args):
         if proc.returncode != 0:
             raise MakeNSISError(proc.returncode)
 
+        if args.release:
+            gen_release_files(args.variables['OUTPUT'])
+            print("Generated release files (.sig, .sha256sum)")
 
 if __name__ == '__main__':
     run_main(main)

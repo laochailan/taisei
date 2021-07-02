@@ -9,6 +9,8 @@ from taiseilib.common import (
     run_main,
 )
 
+from taiseilib.releasefiles import gen_release_files
+
 from pathlib import (
     Path,
     PurePosixPath,
@@ -53,6 +55,12 @@ def main(args):
         default=None,
     )
 
+    parser.add_argument('--release',
+        help='Generate release files',
+        dest='release',
+        action='store_true',
+    )
+
     add_common_args(parser)
     args = parser.parse_args(args[1:])
 
@@ -77,6 +85,9 @@ def main(args):
 
         archive = Path(archive)
         archive.rename(args.output)
+        if args.release:
+            gen_release_files(args.output)
+            print("Generated release files (.sig, .sha256sum)")
 
     print("Generated distribution archive {}".format(str(args.output)))
 

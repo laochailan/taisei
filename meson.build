@@ -318,6 +318,7 @@ if macos_app_bundle
         ':'.join(meson.get_cross_property('macos_tool_path', [])),
         meson.get_cross_property('macos_tool_prefix', ''),
     )
+
 else
     datadir = get_option('datadir')
 
@@ -536,6 +537,7 @@ Summary:
     Executables:            @12@
     Data:                   @13@
     Documentation:          @14@
+    Release Files:          @16@
 '''.format(
         taisei_version_string,
         systype,
@@ -555,7 +557,8 @@ Summary:
         join_paths('$prefix', bindir),
         join_paths('$prefix', data_path),
         join_paths('$prefix', doc_path),
-        is_developer_build
+        is_developer_build,
+        get_option('release_files')
     )
 
 message(summary)

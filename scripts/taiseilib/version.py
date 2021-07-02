@@ -7,7 +7,7 @@ import shlex
 import re
 
 
-class VerionFormatError(common.TaiseiError):
+class VersionFormatError(common.TaiseiError):
     pass
 
 
@@ -32,7 +32,7 @@ class Version(object):
         match = self.regex.match(version_str)
 
         if match is None:
-            raise VerionFormatError("Error: Malformed version string '{0}'. Please use the following format: [v]major[.minor[.patch]][-tweak][-extrainfo]".format(version_str))
+            raise VersionFormatError("Error: Malformed version string '{0}'. Please use the following format: [v]major[.minor[.patch]][-prerelease][-tweak][-extrainfo]".format(version_str))
 
         def mkint(val):
             if val is None:
@@ -68,7 +68,9 @@ def get(*, rootdir=None, fallback=None, args=common.default_args):
             universal_newlines=True
         ).strip()
 
-        if '-' in version_str:
+        # does not append -HEAD if the release is tagged -beta, -rc, etc.
+        prerelease_strings = ['-rc', '-beta', '-alpha', '-pre']
+        if '-' in version_str and not [prerelease for prerelease in prerelease_strings if(prerelease in version_str)]:
             version_str += '-' + subprocess.check_output(
                 shlex.split('git rev-parse --abbrev-ref HEAD'),
                 cwd=str(rootdir),
@@ -91,7 +93,7 @@ def main(args):
     parser = argparse.ArgumentParser(description='Print the Taisei version.', prog=args[0])
 
     parser.add_argument('format', type=str, nargs='?', default='{string}',
-        help='format string; variables: major, minor, patch, tweak, note, string, full_string')
+        help='format string; variables: major, minor, patch, prerelease, tweak, note, string, full_string')
 
     common.add_common_args(parser)
 
