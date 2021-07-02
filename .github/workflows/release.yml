@@ -9,13 +9,13 @@ on:
 
 env:
   MESON_VERSION: '0.56.2'
-  EM_VERSION: '2.0.21'
+  EM_VERSION: '2.0.25'
   EM_CACHE_FOLDER: 'emsdk'
   TAISEI_NOPRELOAD: 0
   TAISEI_PRELOAD_REQUIRED: 1
 
 jobs:
-  linux-release-build:
+  linux-release-build-x64:
     name: "Linux (x64/Source)"
     runs-on: ubuntu-18.04
     steps:
@@ -114,11 +114,11 @@ jobs:
     - name: Upload Log
       uses: actions/upload-artifact@v2
       with:
-        name: taisei_linux_release_log
+        name: taisei_x64_linux_release_log
         path: build/linux/meson-logs/meson-log.txt
         if-no-files-found: warn
 
-  macos-x64-release-build:
+  macos-release-build-x64:
     name: macOS (x64)
     runs-on: macos-10.15
     steps:
