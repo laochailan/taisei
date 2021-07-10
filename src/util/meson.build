@@ -3,6 +3,7 @@ util_deps = []
 
 util_src = files(
     'assert.c',
+    'bezier.c',
     'crap.c',
     'env.c',
     'fbmgr.c',

@@ -45,6 +45,7 @@ cmplx cnormalize(cmplx c) attr_const;
 cmplx cclampabs(cmplx c, double maxabs) attr_const;
 cmplx cwclamp(cmplx c, cmplx cmin, cmplx cmax) attr_const;
 cmplx cdir(double angle) attr_const;
+cmplxf cdirf(float angle) attr_const;
 cmplx cwmul(cmplx c0, cmplx c1) attr_const;
 cmplxf cwmulf(cmplxf c0, cmplxf c1) attr_const;
 cmplx cswap(cmplx c) attr_const;
