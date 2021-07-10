@@ -19,7 +19,6 @@ Taisei's general dependencies are as follows:
 -  meson >= 0.53.0
 -  ninja >= 1.10.0
 -  docutils
--  make (optional)
 
 You can optionally install `other dependencies <../README.rst#dependencies>`__,
 but the build system will pull in everything else you might need otherwise.
@@ -44,18 +43,7 @@ your HOME directory.
 
     export TAISEI_PREFIX=/home/{your_username}/bin
 
-To build and install Taisei on \*nix, there are two options: you can use the
-``Makefile`` or you can run the commands directly, depending on your
-preferences.
-
-To use the ``Makefile``:
-
-.. code:: sh
-
-    cd taisei/
-    make all # sets up, compiles, and installs Taisei
-
-This is equivalent to:
+To build and install Taisei on \*nix:
 
 .. code:: sh
 
@@ -76,7 +64,6 @@ Here's an explanation of what they do:
   deprecation warnings specifically, as some system libraries (such as OpenGL
   on macOS) may have deprecation warnings for things not related to Taisei's
   code.
-
 
 These commands will set up your build environment, compile the game, and
 install it to the ``/home/{your_username}/bin`` directory you specified
@@ -100,12 +87,6 @@ relatively as well:
 
 .. code:: sh
 
-    make setup/install-relative
-
-Or:
-
-.. code:: sh
-
    meson configure build/ -Dinstall_relative=true
 
 Which will cause save game data to be installed to:
@@ -124,12 +105,6 @@ You can enable debugging options/output for development purposes:
 
 .. code:: sh
 
-    make setup/debug
-
-Or:
-
-.. code:: sh
-
     meson configure build/ -Dbuildtype=debug -Db_ndebug=false
 
 Faster Builds
@@ -137,12 +112,6 @@ Faster Builds
 
 This option also helps for speeding up build times, although there is a
 theoretical reduction in performance with these options:
-
-.. code:: sh
-
-    make setup/fastbuild
-
-Or:
 
 .. code:: sh
 
@@ -157,12 +126,6 @@ and other 'fast-forward' options by the pressing keys defined in
 
 .. code:: sh
 
-    make setup/developer
-
-Or:
-
-.. code:: sh
-
    meson config build/ -Ddeveloper=true
 
 Stack Trace Debugging
@@ -170,12 +133,6 @@ Stack Trace Debugging
 
 This is useful for debugging crashes in the game. It uses
 `AddressSanitizer <https://github.com/google/sanitizers/wiki/AddressSanitizer>`__:
-
-.. code:: sh
-
-    make setup/debug-asan
-
-Or:
 
 .. code:: sh
 
@@ -210,24 +167,12 @@ The OpenGL ES 3.0 backend is not built by default. To enable it, do:
 
 .. code:: sh
 
-    make setup/gles/30
-
-Or:
-
-.. code:: sh
-
     meson configure build/ -Dr_gles30=true -Dshader_transpiler=true -Dr_default=gles30
 
 2.0
 '''
 
 An experimental OpenGL ES 2.0 backend can be enabled similarly, using:
-
-.. code:: sh
-
-    make setup/gles/20
-
-Or:
 
 .. code:: sh
 
@@ -257,14 +202,6 @@ For Windows and macOS, you will need Google's ANGLE library for both ES 3.0 and
 documentation on how to do that.
 
 Once you've compiled ANGLE, enable it with:
-
-.. code:: sh
-
-    export LIBGLES=/path/to/libGLESv2.{dll,dylib}
-    export LIBEGL=/path/to/libEGL.{dll,dylib}
-    make setup/gles/angle
-
-Or:
 
 .. code:: sh
 
@@ -386,12 +323,6 @@ Let ``meson`` pull in the corrected version for you via subprojects.
 if you can't remove packages that give you errors from your system for whatever
 reason, you can force ``meson`` to use its built-in subprojects by using the
 following option:
-
-.. code:: sh
-
-    make setup/fallback
-
-Or:
 
 .. code:: sh
 
