@@ -31,8 +31,10 @@ typedef struct Stage5DrawData {
 		float light_strength;
 
 		float rotshift;
-		float omega;
 		float rad;
+
+		float omega;
+		float omega_target;
 	} stairs;
 
 } Stage5DrawData;

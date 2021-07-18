@@ -10,52 +10,53 @@
 
 #include "spells.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
-
 static cmplx cathode_laser(Laser *l, float t) {
 	if(t == EVENT_BIRTH) {
-		l->shader = r_shader_get_optional("lasers/iku_cathode");
+		l->shader = res_shader_optional("lasers/iku_cathode");
 		return 0;
 	}
 
-	l->args[1] = I*cimag(l->args[1]);
+	l->args[1] = I * cimag(l->args[1]);
 
-	return l->pos + l->args[0]*t*cexp(l->args[1]*t);
+	return l->pos + l->args[0] * t * cexp(l->args[1] * t);
 }
 
-void iku_cathode(Boss *b, int t) {
-	GO_TO(b, VIEWPORT_W/2+200.0*I, 0.02);
+DEFINE_EXTERN_TASK(stage5_spell_natural_cathode) {
+	Boss *boss = INIT_BOSS_ATTACK(&ARGS);
+	boss->move = move_towards(VIEWPORT_W/2 + 200.0 * I, 0.06);
+	BEGIN_BOSS_ATTACK(&ARGS);
 
-	TIMER(&t)
-
-	FROM_TO(50, 18000, 70-global.diff*10) {
-		aniplayer_hard_switch(&b->ani, (_i&1) ? "dashdown_left" : "dashdown_right",1);
-		aniplayer_queue(&b->ani,"main",0);
+	for(int x = 0;; x++, WAIT(difficulty_value(60, 50, 40, 30))) {
+		aniplayer_hard_switch(&boss->ani, (x & 1) ? "dashdown_left" : "dashdown_right", 1);
+		aniplayer_queue(&boss->ani, "main", 0);
 
 		int i;
-		int c = 7+global.diff/2;
+		int c = 7 + global.diff/2;
 
-		double speedmod = 1-0.3*(global.diff == D_Lunatic);
+		double speedmod = 1 - 0.3 * difficulty_value(0, 0, 0, 1);
 		for(i = 0; i < c; i++) {
-			PROJECTILE(
+			Projectile *p = PROJECTILE(
 				.proto = pp_bigball,
-				.pos = b->pos,
+				.pos = boss->pos,
 				.color = RGBA(0.2, 0.4, 1.0, 0.0),
-				.rule = iku_induction_bullet,
-				.args = {
-					speedmod*2*cexp(2.0*I*M_PI*frand()),
-					speedmod*0.01*I*(1-2*(_i&1)),
-					1
-				},
 			);
-			if(i < c*3/4)
-				create_lasercurve2c(b->pos, 60, 200, RGBA(0.4, 1, 1, 0), cathode_laser, 2*cexp(2.0*I*M_PI*M_PI*frand()), 0.015*I*(1-2*(_i&1)));
+
+			INVOKE_TASK(iku_induction_bullet, {
+				.p = ENT_BOX(p),
+				.radial_vel = speedmod * 2 * cdir(M_TAU * rng_real()),
+				.angular_vel = speedmod * 0.01 * I * (1 - 2 * (x & 1)),
+				.mode = 1,
+			});
+
+			if(i < c * 3/4) {
+				create_lasercurve2c(boss->pos, 60, 200, RGBA(0.4, 1, 1, 0), cathode_laser, 2 * cdir(M_TAU * M_PI * rng_real()), 0.015 * I * (1 - 2 * (x & 1)));
+			}
 		}
 
-		// XXX: better ideas?
-		play_sound("shot_special1");
-		play_sound("redirect");
-		play_sound("shot3");
-		play_sound("shot2");
+		// TODO: select a better set of sounds someday
+		play_sfx("shot_special1");
+		play_sfx("redirect");
+		play_sfx("shot3");
+		play_sfx("shot2");
 	}
 }

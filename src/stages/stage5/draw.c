@@ -13,8 +13,6 @@
 #include "global.h"
 #include "stageutils.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
-
 static Stage5DrawData *stage5_draw_data;
 
 Stage5DrawData *stage5_get_draw_data(void) {
@@ -25,7 +23,7 @@ void stage5_drawsys_init(void) {
 	stage5_draw_data = calloc(1, sizeof(*stage5_draw_data));
 	stage3d_init(&stage_3d_context, 16);
 
-	stage_3d_context.crot[0] = 60;
+	stage_3d_context.cam.rot.v[0] = 60;
 
 	stage5_draw_data->stairs.rotshift = 140;
 	stage5_draw_data->stairs.rad = 2800;

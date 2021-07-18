@@ -18,6 +18,10 @@ extern struct stage5_spells_s {
 	// order of fields affects the visual spellstage number, but not its real internal ID
 
 	struct {
+		AttackInfo static_bomb;
+	} mid;
+
+	struct {
 		AttackInfo atmospheric_discharge;
 		AttackInfo artificial_lightning;
 		AttackInfo induction_field;

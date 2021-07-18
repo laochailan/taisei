@@ -13,6 +13,7 @@
 
 #include "coroutine.h"
 
-void stage5_update(void);
+void stage5_bg_init_fullstage(void);
+void stage5_bg_init_spellpractice(void);
 
 #endif // IGUARD_stages_stage5_background_anim_h

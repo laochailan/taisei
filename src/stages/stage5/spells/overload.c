@@ -12,6 +12,8 @@
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
+//TODO: rewrite this entire spellcard using TASKs, from scratch
+
 static Enemy* iku_overload_find_next_slave(cmplx from, double playerbias) {
 	Enemy *nearest = NULL, *e;
 	double dist, mindist = INFINITY;
@@ -138,7 +140,8 @@ static void iku_overload_fire_trigger_bullet(void) {
 }
 
 static void iku_overload_slave_visual(Enemy *e, int t, bool render) {
-	iku_slave_visual(e, t, render);
+	// TODO: removed due to modernization, re-add when re-writing in TASKs
+	//iku_slave_visual(e, t, render);
 
 	if(render) {
 		return;
@@ -246,7 +249,6 @@ static int iku_overload_slave(Enemy *e, int t) {
 
 	return 0;
 }
-
 
 void iku_overload(Boss *b, int t) {
 	TIMER(&t);

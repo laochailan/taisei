@@ -12,5 +12,6 @@
 #include "taisei.h"
 
 #define ENTITIES_STAGE5(X, ...) \
+	X(IkuSlave, __VA_ARGS__) \
 
 #endif // IGUARD_stages_stage5_entities_h
