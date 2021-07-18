@@ -49,7 +49,7 @@
 #define FOCUS(_actor) dialog_focus_actor(&dialog, &_actor)
 #define WAIT_SKIPPABLE(_delay) dialog_skippable_wait(&dialog, _delay)
 #define EVENT(_name) coevent_signal(&events._name)
-#define TITLE(_actor, _name, _title) log_warn("TITLE(%s, %s, %s) not yet implemented", #_actor, #_name, #_title)
+#define TITLE(_actor, _name, _title) dialog_show_title(&dialog, &_actor, _name, _title)
 
 #define DIALOG_TASK(_protag, _interface) \
 	TASK_WITH_INTERFACE(_protag##_##_interface##Dialog, _interface##Dialog)
