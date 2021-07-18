@@ -1,0 +1,25 @@
+FROM mstorsjo/llvm-mingw:20210423
+
+LABEL maintainer="Alice D. <alice@starwitch.productions>"
+
+ENV LANG C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update && \
+	apt install -y -qq \
+		build-essential \
+		python3-docutils \
+		python3-pip \
+		zlibc
+
+RUN pip3 install \
+		meson==0.56.2 \
+		ninja \
+		zstandard
+
+# install NSIS 3.x for better compatibility
+# it still works even tho it's from a later version of Ubuntu
+RUN wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-pluginapi_3.05-2_all.deb -P /tmp \
+	&& wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis-common_3.05-2_all.deb -P /tmp \
+	&& wget http://security.ubuntu.com/ubuntu/pool/universe/n/nsis/nsis_3.05-2_amd64.deb -P /tmp \
+	&& dpkg -i --force-all /tmp/nsis-common_3.05-2_all.deb /tmp/nsis_3.05-2_amd64.deb /tmp/nsis-pluginapi_3.05-2_all.deb
