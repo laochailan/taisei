@@ -15,8 +15,6 @@
 #include "scuttle.h"
 #include "spells/spells.h"
 #include "timeline.h"
-#include "wriggle.h"
-#include "scuttle.h"
 
 #include "global.h"
 #include "portrait.h"
@@ -31,28 +29,28 @@ struct stage3_spells_s stage3_spells = {
 	.mid = {
 		.deadly_dance = {
 			{ 0,  1,  2,  3}, AT_SurvivalSpell, "Venom Sign “Deadly Dance”", 14, 40000,
-			scuttle_deadly_dance, stage3_draw_scuttle_spellbg, BOSS_DEFAULT_GO_POS, 3
+			NULL, stage3_draw_scuttle_spellbg, VIEWPORT_W/2.0+100*I, 1, TASK_INDIRECT_INIT(BossAttack, stage3_spell_deadly_dance)
 		},
 	},
 
 	.boss = {
 		.moonlight_rocket = {
 			{ 6,  7,  8,  9}, AT_Spellcard, "Firefly Sign “Moonlight Rocket”", 40, 40000,
-			wriggle_moonlight_rocket, stage3_draw_wriggle_spellbg, BOSS_DEFAULT_GO_POS, 3
+			NULL, stage3_draw_wriggle_spellbg, VIEWPORT_W/2.0+100*I, 1, TASK_INDIRECT_INIT(BossAttack, stage3_spell_moonlight_rocket)
 		},
 		.wriggle_night_ignite = {
 			{10, 11, 12, 13}, AT_Spellcard, "Light Source “Wriggle Night Ignite”", 50, 46000,
-			wriggle_night_ignite, stage3_draw_wriggle_spellbg, BOSS_DEFAULT_GO_POS, 3
+			NULL, stage3_draw_wriggle_spellbg, VIEWPORT_W/2.0+100*I, 1, TASK_INDIRECT_INIT(BossAttack, stage3_spell_night_ignite)
 		},
 		.firefly_storm = {
 			{14, 15, 16, 17}, AT_Spellcard, "Bug Sign “Firefly Storm”", 45, 45000,
-			wriggle_firefly_storm, stage3_draw_wriggle_spellbg, BOSS_DEFAULT_GO_POS, 3
+			NULL, stage3_draw_wriggle_spellbg, VIEWPORT_W/2.0+100*I, 1, TASK_INDIRECT_INIT(BossAttack, stage3_spell_firefly_storm)
 		},
 	},
 
 	.extra.light_singularity = {
 		{ 0,  1,  2,  3}, AT_ExtraSpell, "Lamp Sign “Light Singularity”", 75, 45000,
-		wriggle_light_singularity, stage3_draw_wriggle_spellbg, BOSS_DEFAULT_GO_POS, 3
+		NULL, stage3_draw_wriggle_spellbg, VIEWPORT_W/2.0+100*I, 1, TASK_INDIRECT_INIT(BossAttack, stage3_spell_light_singularity)
 	},
 };
 
@@ -61,6 +59,7 @@ static void stage3_start(void) {
 	stage3_bg_init_fullstage();
 	stage_start_bgm("stage3");
 	stage_set_voltage_thresholds(50, 125, 300, 600);
+	INVOKE_TASK(stage3_timeline);
 }
 
 static void stage3_spellpractice_start(void) {
@@ -142,7 +141,6 @@ StageProcs stage3_procs = {
 	.draw = stage3_draw,
 	.end = stage3_end,
 	.preload = stage3_preload,
-	.event = stage3_events,
 	.shader_rules = stage3_bg_effects,
 	.postprocess_rules = stage3_postprocess,
 	.spellpractice_procs = &(StageProcs) {

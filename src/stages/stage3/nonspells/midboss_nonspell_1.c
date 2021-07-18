@@ -13,87 +13,77 @@
 
 #include "global.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
+TASK(midboss_delaymove, { BoxedBoss boss; } ) {
+	Boss *boss = TASK_BIND(ARGS.boss);
 
-static int scuttle_lethbite_proj(Projectile *p, int time) {
-	if(time < 0) {
-		return ACTION_ACK;
-	}
-
-	#define A0_PROJ_START 120
-	#define A0_PROJ_CHARGE 20
-	TIMER(&time)
-
-	FROM_TO(A0_PROJ_START, A0_PROJ_START + A0_PROJ_CHARGE, 1)
-		return 1;
-
-	AT(A0_PROJ_START + A0_PROJ_CHARGE + 1) if(p->type != PROJ_DEAD) {
-		p->args[1] = 3;
-		p->args[0] = (3 + 2 * global.diff / (float)D_Lunatic) * cexp(I*carg(global.plr.pos - p->pos));
-
-		int cnt = 3, i;
-		for(i = 0; i < cnt; ++i) {
-			tsrand_fill(2);
-
-			PARTICLE(
-				.sprite = "smoothdot",
-				.color = RGBA(0.8, 0.6, 0.6, 0),
-				.draw_rule = Shrink,
-				.rule = enemy_flare,
-				.timeout = 100,
-				.args = {
-					cexp(I*(M_PI*anfrand(0))) * (1 + afrand(1)),
-					add_ref(p)
-				},
-			);
-
-			float offset = global.frames/15.0;
-			if(global.diff > D_Hard && global.boss) {
-				offset = M_PI+carg(global.plr.pos-global.boss->pos);
-			}
-
-			PROJECTILE(
-				.proto = pp_thickrice,
-				.pos = p->pos,
-				.color = RGB(0.4, 0.3, 1.0),
-				.rule = linear,
-				.args = {
-					-cexp(I*(i*2*M_PI/cnt + offset)) * (1.0 + (global.diff > D_Normal))
-				},
-			);
-		}
-
-		play_sound("redirect");
-		play_sound("shot1");
-		spawn_projectile_highlight_effect(p);
-	}
-
-	return asymptotic(p, time);
-	#undef A0_PROJ_START
-	#undef A0_PROJ_CHARGE
+	boss->move.attraction_point = 5*VIEWPORT_W/6 + 200*I;
+	boss->move.attraction = 0.001;
 }
 
-void stage3_midboss_nonspell1(Boss *boss, int time) {
-	int i;
-	TIMER(&time)
+DEFINE_EXTERN_TASK(stage3_midboss_nonspell_1) {
+	Boss *boss = INIT_BOSS_ATTACK(&ARGS);
+	BEGIN_BOSS_ATTACK(&ARGS);
 
-	GO_TO(boss, VIEWPORT_W/2+VIEWPORT_W/3*sin(time/300) + I*cimag(boss->pos), 0.01)
+	int difficulty = difficulty_value(1, 2, 3, 4);
+	int intensity = difficulty_value(18, 19, 20, 21);
+	int velocity_intensity = difficulty_value(2, 3, 4, 5);
+	INVOKE_SUBTASK_DELAYED(400, midboss_delaymove, ENT_BOX(boss));
 
-	FROM_TO_INT(0, 90000, 72 + 6 * (D_Lunatic - global.diff), 0, 1) {
-		int cnt = 21 - 1 * (D_Lunatic - global.diff);
+	for(;;) {
+		DECLARE_ENT_ARRAY(Projectile, projs, intensity*4);
 
-		for(i = 0; i < cnt; ++i) {
-			cmplx v = (2 - psin((fmax(3, global.diff+1)*2*M_PI*i/(float)cnt) + time)) * cexp(I*2*M_PI/cnt*i);
-			PROJECTILE(
-				.proto = pp_wave,
-				.pos = boss->pos - v * 50,
-				.color = _i % 2? RGB(0.7, 0.3, 0.0) : RGB(0.3, .7, 0.0),
-				.rule = scuttle_lethbite_proj,
-				.args = { v, 2.0 },
+		// fly through Scuttle, wind up on other side in a starburst pattern
+		for(int i = 0; i < intensity; ++i) {
+			cmplx v = (2 - psin((fmax(3, velocity_intensity) * 2 * M_PI * i / (float)intensity) + i)) * cdir(2 * M_PI / intensity * i);
+			ENT_ARRAY_ADD(&projs,
+				PROJECTILE(
+					.proto = pp_wave,
+					.pos = boss->pos - v * 50,
+					.color = i % 2 ? RGB(0.7, 0.3, 0.0) : RGB(0.3, .7, 0.0),
+					.move = move_asymptotic_simple(v, 2.0)
+				)
 			);
 		}
 
-		// FIXME: better sound
-		play_sound("shot_special1");
+		WAIT(80);
+
+		// halt acceleration for a moment
+		ENT_ARRAY_FOREACH(&projs, Projectile *p, {
+			p->move.acceleration = 0;
+		});
+
+		WAIT(30);
+
+		// change direction, fly towards player
+		ENT_ARRAY_FOREACH(&projs, Projectile *p, {
+			int count = 6;
+
+			// when the shot "releases", add a bunch of particles and some extra bullets
+			for(int i = 0; i < count; ++i) {
+				PARTICLE(
+					.sprite = "smoothdot",
+					.pos = p->pos,
+					.color = RGBA(0.8, 0.6, 0.6, 0),
+					.timeout = 100,
+					.draw_rule = pdraw_timeout_scalefade(0, 0.8, 1, 0),
+					.move = move_asymptotic_simple(p->move.velocity + rng_dir(), 0.1)
+				);
+
+				real offset = global.frames/15.0;
+				if(global.diff > D_Hard && global.boss) {
+					offset = M_PI + carg(global.plr.pos - global.boss->pos);
+				}
+
+				PROJECTILE(
+					.proto = pp_thickrice,
+					.pos = p->pos,
+					.color = RGB(0.4, 0.3, 1.0),
+					.move = move_linear(-cdir(((i * 2 * M_PI/count + offset)) * (1.0 + (difficulty > 2))))
+				);
+			}
+			spawn_projectile_highlight_effect(p);
+			p->move = move_linear((3 + (2.0 * difficulty) / 4.0) * (cnormalize(global.plr.pos - p->pos)));
+
+		});
 	}
 }

@@ -14,111 +14,95 @@
 #include "common_tasks.h"
 #include "global.h"
 
-MODERNIZE_THIS_FILE_AND_REMOVE_ME
+TASK(singularity_laser, { cmplx pos; cmplx vel; real amp; real freq; }) {
+	Laser *l = TASK_BIND(create_laser(ARGS.pos,
+		200, 10000, RGBA(0.0, 0.2, 1.0, 0.0), las_sine_expanding,
+		NULL, ARGS.vel, ARGS.amp, ARGS.freq, 0
+	));
 
-static void wriggle_singularity_laser_logic(Laser *l, int time) {
-	if(time == EVENT_BIRTH) {
-		l->width = 0;
-		l->speed = 0;
-		l->timeshift = l->timespan;
-		l->unclearable = true;
-		return;
-	}
+	laser_make_static(l);
+	l->unclearable = true;
 
-	if(time == 140) {
-		play_sound("laser1");
-	}
+	real spin_factor = difficulty_value(1.05, 1.4, 1.75, 2.1);
 
-	laser_charge(l, time, 150, 10 + 10 * psin(l->args[0] + time / 60.0));
-	l->args[3] = time / 10.0;
-	l->args[0] *= cexp(I*(M_PI/500.0) * (0.7 + 0.35 * global.diff));
-
-	l->color = *HSLA((carg(l->args[0]) + M_PI) / (M_PI * 2), 1.0, 0.5, 0.0);
-}
-
-void wriggle_light_singularity(Boss *boss, int time) {
-	TIMER(&time)
-
-	AT(EVENT_DEATH) {
-		return;
-	}
-
-	time -= 120;
-
-	if(time < 0) {
-		GO_TO(boss, VIEWPORT_W/2 + VIEWPORT_H*I/2, 0.05)
-		return;
-	}
-
-	AT(0) {
-		int cnt = 2 + global.diff;
-		for(int i = 0; i < cnt; ++i) {
-			double aofs = 0;
-
-			if(global.diff == D_Hard || global.diff == D_Easy) {
-				aofs = 0.7;
-			}
-
-			cmplx vel = 2 * cexp(I*(aofs + M_PI / 4 + M_PI * 2 * i / (double)cnt));
-			double amp = (4.0/cnt) * (M_PI/5.0);
-			double freq = 0.05;
-
-			create_laser(boss->pos, 200, 10000, RGBA(0.0, 0.2, 1.0, 0.0), las_sine_expanding,
-				wriggle_singularity_laser_logic, vel, amp, freq, 0);
+	for(int t = 0;; ++t, YIELD) {
+		if(t == 140) {
+			play_sfx("laser1");
 		}
 
-		play_sound("charge_generic");
-		aniplayer_queue(&boss->ani, "main", 0);
+		laser_charge(l, t, 150, 10 + 10 * psin(l->args[0] + t / 60.0));
+		l->args[3] = t / 10.0;  // phase
+		l->args[0] *= cexp(I*(M_PI/500.0) * spin_factor);
+
+		l->color = *HSLA((carg(l->args[0]) + M_PI) / (M_PI * 2), 1.0, 0.5, 0.0);
+	}
+}
+
+DEFINE_EXTERN_TASK(stage3_spell_light_singularity) {
+	Boss *boss = INIT_BOSS_ATTACK(&ARGS);
+	boss->move = move_towards(VIEWPORT_W/2 + VIEWPORT_H*I/2, 0.05);
+	BEGIN_BOSS_ATTACK(&ARGS);
+
+	WAIT(100);
+	aniplayer_queue(&boss->ani, "specialshot_charge", 1);
+	aniplayer_queue(&boss->ani, "specialshot_release", 1);
+	aniplayer_queue(&boss->ani, "main", 0);
+	WAIT(20);
+
+	int nlasers = difficulty_value(3, 4, 5, 6);
+	int nbullets = difficulty_value(8, 10, 12, 14);
+	real laser_angle_ofs = difficulty_value(0.7, 0, 0.7, 0);
+	real bullet_speed = difficulty_value(1, 0.8, 0.6, 0.4);
+
+	ProjPrototype *ptypes[] = {
+		pp_thickrice,
+		pp_rice,
+		pp_bullet,
+		pp_wave,
+		pp_ball,
+		pp_plainball,
+		pp_bigball,
+		pp_soul,
+	};
+
+	int bullets_cycle = 0;
+
+	for(int i = 0; i < nlasers; ++i) {
+		INVOKE_TASK(singularity_laser,
+			.pos = boss->pos,
+			.vel = 2 * cdir(laser_angle_ofs + M_PI / 4 + M_PI * 2 * i / (real)nlasers),
+			.amp = (4.0 / nlasers) * (M_PI / 5),
+			.freq = 0.05
+		);
 	}
 
-	if(time > 120) {
-		play_sfx_loop("shot1_loop");
-	}
-
-	if(time == 0) {
-		return;
-	}
-
-	if(!((time+30) % 300)) {
+	for(;;YIELD) {
+		WAIT(270);
 		aniplayer_queue(&boss->ani, "specialshot_charge", 1);
 		aniplayer_queue(&boss->ani, "specialshot_release", 1);
 		aniplayer_queue(&boss->ani, "main", 0);
-	}
+		WAIT(30);
 
-	if(!(time % 300)) {
-		ProjPrototype *ptype = NULL;
+		ProjPrototype *ptype = ptypes[bullets_cycle];
 
-		switch(time / 300 - 1) {
-			case 0:  ptype = pp_thickrice;   break;
-			case 1:  ptype = pp_rice;        break;
-			case 2:  ptype = pp_bullet;      break;
-			case 3:  ptype = pp_wave;        break;
-			case 4:  ptype = pp_ball;        break;
-			case 5:  ptype = pp_plainball;   break;
-			case 6:  ptype = pp_bigball;     break;
-			default: ptype = pp_soul;        break;
+		if(bullets_cycle < ARRAY_SIZE(ptypes) - 1) {
+			++bullets_cycle;
 		}
 
-		int cnt = 6 + 2 * global.diff;
-		float colorofs = frand();
+		real colorofs = rng_real();
 
-		for(int i = 0; i < cnt; ++i) {
-			double a = ((M_PI*2.0*i)/cnt);
-			cmplx dir = cexp(I*a);
+		for(int i = 0; i < nbullets; ++i) {
+			real f = i / (real)nbullets;
+			cmplx dir = cdir(M_TAU * f);
 
 			PROJECTILE(
 				.proto = ptype,
 				.pos = boss->pos,
-				.color = HSLA(a/(M_PI*2) + colorofs, 1.0, 0.5, 0),
-				.rule = asymptotic,
-				.args = {
-					dir * (1.2 - 0.2 * global.diff),
-					20
-				},
+				.color = HSLA(f + colorofs, 1.0, 0.5, 0),
+				.move = move_asymptotic_simple(dir * bullet_speed, 20),
 			);
 		}
 
-		play_sound("shot_special1");
+		play_sfx("shot_special1");
 	}
-
 }

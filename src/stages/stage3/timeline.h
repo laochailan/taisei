@@ -11,8 +11,8 @@
 
 #include "taisei.h"
 
-void stage3_events(void);
+#include "coroutine.h"
 
-#define STAGE3_MIDBOSS_TIME 1765
+DECLARE_EXTERN_TASK(stage3_timeline, NO_ARGS);
 
 #endif // IGUARD_stages_stage3_timeline_h
