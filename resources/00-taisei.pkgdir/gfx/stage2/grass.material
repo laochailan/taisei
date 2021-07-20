@@ -1,0 +1,6 @@
+
+diffuse_map = stage2/grass_diffuse
+normal_map = stage2/grass_normal
+ambient_map = stage2/grass_ambient
+roughness_map = stage2/grass_roughness
+

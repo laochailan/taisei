@@ -1,12 +1,15 @@
 #version 330 core
 
 #include "interface/standard.glslh"
+#include "lib/util.glslh"
 
 VARYING(3) vec3 posRaw;
+UNIFORM(1) samplerCube skybox;
 
 void main(void) {
-	vec4 clr = clamp(vec4(0.0)+pow(1.0-posRaw.z*posRaw.z,5.)*vec4(0.1,0.5,0.9,1.0)+exp(-posRaw.z*10.0)*vec4(1.0),0.,1.);
+	fragColor = texture(skybox, fixCubeCoord(posRaw));
 
-	clr = mix(clr,vec4(0.2,0.4,0.6,1.0),step(0.,-posRaw.z)*exp(-10.*sqrt(1.+1.*length(posRaw.xy))));
-	fragColor = clr;
+	fragColor.r = linear_to_srgb(fragColor.r);
+	fragColor.g = linear_to_srgb(fragColor.g);
+	fragColor.b = linear_to_srgb(fragColor.b);
 }

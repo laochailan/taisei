@@ -13,10 +13,17 @@
 
 #include "stagedraw.h"
 #include "color.h"
+#include "stageutils.h"
 
 typedef struct Stage4DrawData {
 	Color ambient_color;
 	vec3 midboss_light_pos;
+
+	struct {
+		PBRModel corridor;
+		PBRModel ground;
+		PBRModel mansion;
+	} models;
 } Stage4DrawData;
 
 void stage4_drawsys_init(void);

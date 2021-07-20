@@ -1,0 +1,5 @@
+
+ambient_map = stage3/rocks_ambient
+diffuse_map = stage3/rocks_diffuse
+normal_map = stage3/rocks_normal
+roughness_map = stage3/rocks_roughness

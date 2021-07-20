@@ -30,6 +30,9 @@ typedef struct KVSpec {
 	float *out_float;
 	bool *out_bool;
 
+	uint min_values;
+	uint max_values;
+
 	KVCallback callback;
 	void *callback_data;
 } KVSpec;
@@ -44,6 +47,7 @@ bool parse_keyvalue_file_with_spec(const char *filename, KVSpec *spec);
 bool parse_bool(const char *str, bool fallback) attr_nonnull(1);
 
 bool kvparser_deprecation(const char *key, const char *val, void *data);
+bool kvparser_vec3(const char *key, const char *val, void *data);
 
 #define KVSPEC_DEPRECATED(new) .callback = kvparser_deprecation, .callback_data = (new)
 

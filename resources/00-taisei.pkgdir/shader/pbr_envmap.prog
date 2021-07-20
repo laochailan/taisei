@@ -1,0 +1,2 @@
+
+objects = pbr.vert pbr_envmap.frag

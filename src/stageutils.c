@@ -12,6 +12,8 @@
 #include "global.h"
 #include "util/glm.h"
 #include "video.h"
+#include "resource/model.h"
+#include "resource/material.h"
 
 Stage3D stage_3d_context;
 
@@ -51,6 +53,19 @@ void camera3d_apply_transforms(Camera3D *cam, mat4 mat) {
 void stage3d_apply_transforms(Stage3D *s, mat4 mat) {
 	camera3d_apply_transforms(&s->cam, mat);
 }
+
+void camera3d_apply_inverse_transforms(Camera3D *cam, mat4 mat) {
+	// TODO optimize this
+	mat4 temp;
+	glm_mat4_identity(temp);
+	camera3d_apply_transforms(cam, temp);
+	glm_mat4_inv_fast(temp, mat);
+}
+
+void stage3d_apply_inverse_transforms(Stage3D *s, mat4 mat) {
+	camera3d_apply_inverse_transforms(&s->cam, mat);
+}
+
 
 // The author that brought you linear3dpos and that one function
 // that calculates the closest point to a line segment proudly presents:
@@ -119,6 +134,65 @@ void camera3d_set_point_light_uniforms(
 	r_uniform_vec3_array("light_positions[0]", 0, num_lights, lpos);
 	r_uniform_vec3_array("light_colors[0]", 0, num_lights, lrad);
 	r_uniform_int("light_count", num_lights);
+}
+
+void pbr_set_material_uniforms(const PBRMaterial *m, const PBREnvironment *env)  {
+	int flags = 0;
+
+	if(m->diffuse_map) {
+		r_uniform_sampler("diffuse_map", m->diffuse_map);
+		flags |= PBR_FEATURE_DIFFUSE_MAP;
+	}
+
+	if(m->normal_map) {
+		r_uniform_sampler("normal_map", m->normal_map);
+		flags |= PBR_FEATURE_NORMAL_MAP;
+	}
+
+	if(m->roughness_map) {
+		r_uniform_sampler("roughness_map", m->roughness_map);
+		flags |= PBR_FEATURE_ROUGHNESS_MAP;
+	}
+
+	if(m->ambient_map) {
+		r_uniform_sampler("ambient_map", m->ambient_map);
+		flags |= PBR_FEATURE_AMBIENT_MAP;
+	}
+
+	if(m->depth_map && m->depth_scale) {
+		r_uniform_sampler("depth_map", m->depth_map);
+		r_uniform_float("depth_scale", m->depth_scale);
+		flags |= PBR_FEATURE_DEPTH_MAP;
+	}
+
+	if(env->environment_map) {
+		r_uniform_sampler("ibl_brdf_lut", "ibl_brdf_lut");
+		r_uniform_sampler("environment_map", env->environment_map);
+		r_uniform_mat4("inv_camera_transform", (vec4*)env->cam_inverse_transform);
+		flags |= PBR_FEATURE_ENVIRONMENT_MAP;
+	}
+
+	vec4 diffuseRGB_metallicA;
+	glm_vec3_copy((float*)m->diffuse_color, diffuseRGB_metallicA);
+	diffuseRGB_metallicA[3] = m->metallic_value;
+	r_uniform_vec4_vec("diffuseRGB_metallicA", diffuseRGB_metallicA);
+
+	vec4 ambientRGB_roughnessA;
+	glm_vec3_mul((float*)env->ambient_color, (float*)m->ambient_color, ambientRGB_roughnessA);
+	ambientRGB_roughnessA[3] = m->roughness_value;
+	r_uniform_vec4_vec("ambientRGB_roughnessA", ambientRGB_roughnessA);
+
+	r_uniform_int("features_mask", flags);
+}
+
+void pbr_draw_model(const PBRModel *pmdl, const PBREnvironment *env) {
+	pbr_set_material_uniforms(NOT_NULL(pmdl->mat), env);
+	r_draw_model_ptr(NOT_NULL(pmdl->mdl), 0, 0);
+}
+
+void pbr_load_model(PBRModel *pmdl, const char *model_name, const char *mat_name) {
+	pmdl->mdl = res_model(model_name);
+	pmdl->mat = res_material(mat_name);
 }
 
 void stage3d_draw_segment(Stage3D *s, SegmentPositionRule pos_rule, SegmentDrawRule draw_rule, float maxrange) {

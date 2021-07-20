@@ -1,0 +1,5 @@
+
+ambient_map = stage3/trees_ambient
+diffuse_map = stage3/trees_diffuse
+normal_map = stage3/trees_normal
+roughness_map = stage3/trees_roughness

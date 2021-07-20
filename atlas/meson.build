@@ -43,6 +43,7 @@ atlases = [
     ['common_ui',   ['--width=1024', '--height=1024']],
     ['huge',        []],
     ['portraits',   ['--width=4096', '--height=4096']],
+    ['temp_stagex', []],
 ]
 
 atlas_profiles = [

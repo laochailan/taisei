@@ -1,0 +1,5 @@
+
+ambient_map = credits/tower_ambient
+diffuse_map = credits/tower_diffuse
+normal_map = credits/tower_normal
+roughness_map = credits/tower_roughness

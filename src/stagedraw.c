@@ -618,6 +618,10 @@ static bool powersurge_draw_predicate(EntityInterface *ent) {
 		return i->type == ITEM_VOLTAGE;
 	}
 
+	if(ent->type == ENT_TYPE_ID(YumemiSlave)) {
+		return true;
+	}
+
 	return false;
 }
 

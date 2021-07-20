@@ -26,6 +26,7 @@ if host_machine.system() == 'emscripten'
         'gfx/*.ani',
         'gfx/*.spr',
         'gfx/*.tex',
+        'gfx/*.material',
         'fonts/*.font',
         'models/*.iqm',
 

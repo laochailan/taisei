@@ -90,6 +90,16 @@ vec3 sample_normalmap(sampler2D src, vec2 uv) {
     return vec3(xy, z);
 }
 
+float smoothmin(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+float smoothmax(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (a - b) / k, 0.0, 1.0);
+    return mix(b, a, h) + k * h * (1.0 - h);
+}
+
 float flip_topleft_to_native(float x) {
 #ifdef NATIVE_ORIGIN_BOTTOMLEFT
     return 1 - x;
@@ -140,6 +150,12 @@ float flip_native_to_bottomleft(float x) {
 vec2 flip_native_to_bottomleft(vec2 v) {
     v.y = flip_native_to_bottomleft(v.y);
     return v;
+}
+
+vec2 equirectMapCoord(vec3 v) {
+	float phi = atan(v.y, v.x);
+	float theta = acos(v.z / length(v));
+	return vec2(0.5 + phi / tau, 1 - theta / pi);
 }
 
 vec3 fixCubeCoord(vec3 v) {

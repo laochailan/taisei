@@ -11,6 +11,8 @@
 #include "draw.h"
 
 #include "global.h"
+#include "util/glm.h"
+#include "resource/model.h"
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
@@ -25,39 +27,20 @@ void stage6_drawsys_init(void) {
 	// TODO: make this background slightly less horribly inefficient
 	stage3d_init(&stage_3d_context, 128);
 
-	stage6_draw_data->fall_over.frames = 0;
 
 	for(int i = 0; i < NUM_STARS; i++) {
-		float x,y,z,r;
+		vec3 p = { 0 };
 
-		x = y = z = 0;
 		for(int c = 0; c < 10; c++) {
-			x += nfrand();
-			y += nfrand();
-			z += nfrand();
+			p[0] += rng_f32s();
+			p[1] += rng_f32s();
+			p[2] += rng_f32s();
 		} // now x,y,z are approximately gaussian
-		z = fabs(z);
-		r = sqrt(x*x+y*y+z*z);
+
 		// normalize them and it’s evenly distributed on a sphere
-		stage6_draw_data->stars.position[3*i+0] = x/r;
-		stage6_draw_data->stars.position[3*i+1] = y/r;
-		stage6_draw_data->stars.position[3*i+2] = z/r;
+		glm_vec3_normalize(p);
+		glm_vec3_copy(p, stage6_draw_data->stars.position[i]);
 	}
-
-	stage_3d_context.cam.aspect = STAGE3D_DEFAULT_ASPECT; // FIXME
-	stage_3d_context.cam.near = 100;
-	stage_3d_context.cam.far = 9000;
-
-	stage_3d_context.cx[1] = -230;
-	stage_3d_context.crot[0] = 90;
-	stage_3d_context.crot[2] = -40;
-
-//	for testing
-//	stage_3d_context.cx[0] = 80;
-//	stage_3d_context.cx[1] = -215;
-//	stage_3d_context.cx[2] = 295;
-//	stage_3d_context.crot[0] = 90;
-//	stage_3d_context.crot[2] = 381.415100;
 
 	FBAttachmentConfig cfg;
 	memset(&cfg, 0, sizeof(cfg));
@@ -70,6 +53,16 @@ void stage6_drawsys_init(void) {
 	stage6_draw_data->baryon.fbpair.front = stage_add_background_framebuffer("Baryon FB 1", 0.25, 0.5, 1, &cfg);
 	stage6_draw_data->baryon.fbpair.back = stage_add_background_framebuffer("Baryon FB 2", 0.25, 0.5, 1, &cfg);
 	stage6_draw_data->baryon.aux_fb = stage_add_background_framebuffer("Baryon FB AUX", 0.25, 0.5, 1, &cfg);
+
+	stage6_draw_data->envmap = res_texture("stage6/sky");
+	stage6_draw_data->models.calabi_yau_quintic = res_model("stage6/calabi-yau-quintic");
+	stage6_draw_data->models.top_plate = res_model("stage6/top_plate");
+
+	pbr_load_model(&stage6_draw_data->models.rim,          "stage6/rim",          "stage6/rim");
+	pbr_load_model(&stage6_draw_data->models.spires,       "stage6/spires",       "stage6/spires");
+	pbr_load_model(&stage6_draw_data->models.stairs,       "stage6/stairs",       "stage6/stairs");
+	pbr_load_model(&stage6_draw_data->models.tower,        "stage6/tower",        "stage6/tower");
+	pbr_load_model(&stage6_draw_data->models.tower_bottom, "stage6/tower_bottom", "stage6/tower_bottom");
 }
 
 void stage6_drawsys_shutdown(void) {
@@ -77,53 +70,66 @@ void stage6_drawsys_shutdown(void) {
 	free(stage6_draw_data);
 	stage6_draw_data = NULL;
 }
-uint stage6_towerwall_pos(Stage3D *s3d, vec3 pos, float maxrange) {
-	vec3 p = {0, 0, -220};
-	vec3 r = {0, 0, 300};
 
-	uint num = linear3dpos(s3d, pos, maxrange, p, r);
+static void stage6_bg_setup_pbr_lighting(Camera3D *cam) {
+	PointLight3D lights[] = {
+		{ { 0, 10, 100 }, { 10000, 10000, 10000 } },
+	};
 
-	for(uint i = 0; i < num; ++i) {
-		if(s3d->pos_buffer[i][2] > 0) {
-			s3d->pos_buffer[i][1] = -90000;
-		}
-	}
-
-	return num;
+	camera3d_set_point_light_uniforms(cam, ARRAY_SIZE(lights), lights);
+	r_uniform_vec3("ambient_color", 1, 1, 1);
 }
 
-void stage6_towerwall_draw(vec3 pos) {
-	r_state_push();
-
-	r_shader("tower_wall");
-	r_uniform_sampler("tex", "stage6/towerwall");
-
-	r_mat_mv_push();
-	r_mat_mv_translate(pos[0], pos[1], pos[2]);
-	r_mat_mv_scale(30,30,30);
-	r_draw_model("towerwall");
-	r_mat_mv_pop();
-
-	r_state_pop();
+static void stage6_bg_setup_pbr_env(Camera3D *cam, PBREnvironment *env) {
+	stage6_bg_setup_pbr_lighting(cam);
+	glm_vec3_broadcast(1.0f, env->ambient_color);
+	env->environment_map = stage6_draw_data->envmap;
+	camera3d_apply_inverse_transforms(cam, env->cam_inverse_transform);
 }
 
 static uint stage6_towertop_pos(Stage3D *s3d, vec3 pos, float maxrange) {
-	vec3 p = {0, 0, 70};
+	vec3 p = {0, 0, 0};
 	return single3dpos(s3d, pos, maxrange, p);
 }
 
 static void stage6_towertop_draw(vec3 pos) {
-	r_uniform_sampler("tex", "stage6/towertop");
-
+	r_state_push();
 	r_mat_mv_push();
-	r_mat_mv_translate(pos[0], pos[1], pos[2]);
-	r_mat_mv_scale(28,28,28);
-	r_draw_model("towertop");
+	r_mat_mv_translate_v(pos);
+
+	r_shader("pbr");
+
+	PBREnvironment env = { 0 };
+	stage6_bg_setup_pbr_env(&stage_3d_context.cam, &env);
+
+	pbr_draw_model(&stage6_draw_data->models.stairs, &env);
+	pbr_draw_model(&stage6_draw_data->models.tower, &env);
+	// TODO optimize: draw tower bottom only after falling off the tower
+	pbr_draw_model(&stage6_draw_data->models.tower_bottom, &env);
+	pbr_draw_model(&stage6_draw_data->models.rim, &env);
+	pbr_draw_model(&stage6_draw_data->models.spires, &env);
+
+	r_shader("envmap_reflect");
+	r_uniform_sampler("envmap", "stage6/sky");
+	r_uniform_mat4("inv_camera_transform", env.cam_inverse_transform);
+	r_draw_model_ptr(stage6_draw_data->models.top_plate, 0, 0);
+
+	r_disable(RCAP_CULL_FACE);
+	//r_disable(RCAP_DEPTH_WRITE);
+	r_mat_mv_translate(0, 0, 6);
+	r_mat_mv_scale(0.7, 0.7, 0.7);
+	//r_mat_mv_translate(stage_3d_context.cam.pos[0], stage_3d_context.cam.pos[1], stage_3d_context.cam.pos[2]);
+	r_shader("calabi-yau-quintic");
+	//r_mat_mv_rotate(-global.frames*0.03, 0, 0, 1);
+	r_mat_mv_rotate(global.frames*0.01, 0, 1, 0);
+	r_uniform_float("alpha", global.frames*0.03);
+	r_draw_model_ptr(stage6_draw_data->models.calabi_yau_quintic, 0, 0);
 	r_mat_mv_pop();
+	r_state_pop();
 }
 
 static uint stage6_skysphere_pos(Stage3D *s3d, vec3 pos, float maxrange) {
-	return single3dpos(s3d, pos, maxrange, s3d->cx);
+	return single3dpos(s3d, pos, maxrange, s3d->cam.pos);
 }
 
 
@@ -131,25 +137,33 @@ static void stage6_skysphere_draw(vec3 pos) {
 	r_state_push();
 
 	r_disable(RCAP_DEPTH_TEST);
-	ShaderProgram *s = r_shader_get("stage6_sky");
-	r_shader_ptr(s);
+	r_cull(CULL_FRONT);
+	r_shader("stage6_sky");
+	r_uniform_sampler("skybox", "stage6/sky");
 
 	r_mat_mv_push();
-	r_mat_mv_translate(pos[0], pos[1], pos[2] - 30);
-	r_mat_mv_scale(150, 150, 150);
-	r_draw_model("skysphere");
+	r_mat_mv_translate_v(stage_3d_context.cam.pos);
+	r_mat_mv_scale(50, 50, 50);
+	r_draw_model("cube");
 
 	r_shader("sprite_default");
 
 	for(int i = 0; i < NUM_STARS; i++) {
+		vec3 p;
+		glm_vec3_copy(stage6_draw_data->stars.position[i], p);
+		vec3 axis = { 1, 0, 0.2 };
+		glm_vec3_rotate(p, global.frames*0.001, axis);
+		if(p[2] < 0) {
+			continue;
+		}
+
 		r_mat_mv_push();
-		float x = stage6_draw_data->stars.position[3*i+0], y = stage6_draw_data->stars.position[3*i+1], z = stage6_draw_data->stars.position[3*i+2];
-		r_mat_mv_translate(x, y, z);
-		r_mat_mv_rotate(acos(stage6_draw_data->stars.position[3*i+2]), -y, x, 0);
-		r_mat_mv_scale(1.0/4000, 1.0/4000, 1.0/4000);
+		r_mat_mv_translate_v(p);
+		r_mat_mv_rotate(acos(p[2]), -p[1], p[0], 0);
+		r_mat_mv_scale(3e-4, 3e-4, 3e-4);
 		r_draw_sprite(&(SpriteParams) {
 			.sprite = "part/smoothdot",
-			.color = RGBA_MUL_ALPHA(0.9, 0.9, 1.0, 0.8 * z),
+			.color = RGBA_MUL_ALPHA(1, 1, 1, sqrt(p[2])),
 		});
 		r_mat_mv_pop();
 
@@ -161,16 +175,20 @@ static void stage6_skysphere_draw(vec3 pos) {
 
 void stage6_draw(void) {
 	Stage3DSegment segs[] = {
+		/*
+		 * TODO: Render the skybox last, so that most of it can be
+		 * rejected by the depth test. This doesn't work right now
+		 * for some reason.
+		 */
 		{ stage6_skysphere_draw, stage6_skysphere_pos },
 		{ stage6_towertop_draw, stage6_towertop_pos },
-		{ stage6_towerwall_draw, stage6_towerwall_pos },
 	};
 
-	stage3d_draw(&stage_3d_context, 10000, ARRAY_SIZE(segs), segs);
+	stage3d_draw(&stage_3d_context, 100, ARRAY_SIZE(segs), segs);
 }
 
 static void draw_baryon_connector(cmplx a, cmplx b) {
-	Sprite *spr = get_sprite("stage6/baryon_connector");
+	Sprite *spr = res_sprite("stage6/baryon_connector");
 	r_draw_sprite(&(SpriteParams) {
 		.sprite_ptr = spr,
 		.pos = { creal(a + b) * 0.5, cimag(a + b) * 0.5 },
@@ -326,3 +344,21 @@ void elly_global_rule(Boss *b, int time) {
 	global.boss->glowcolor = *HSL(time/120.0, 1.0, 0.25);
 	global.boss->shadowcolor = *HSLA_MUL_ALPHA((time+20)/120.0, 1.0, 0.25, 0.5);
 }
+
+static bool stage6_fog(Framebuffer *fb) {
+	r_shader("zbuf_fog");
+	r_uniform_sampler("depth", r_framebuffer_get_attachment(fb, FRAMEBUFFER_ATTACH_DEPTH));
+	r_uniform_vec4_rgba("fog_color", RGB(0.1,0.3,0.8));
+	r_uniform_float("start", 0.2);
+	r_uniform_float("end", 5);
+	r_uniform_float("exponent", 3.0);
+	r_uniform_float("sphereness", 0);
+	draw_framebuffer_tex(fb, VIEWPORT_W, VIEWPORT_H);
+	r_shader_standard();
+	return true;
+}
+
+ShaderRule stage6_bg_effects[] = {
+	stage6_fog,
+	NULL
+};

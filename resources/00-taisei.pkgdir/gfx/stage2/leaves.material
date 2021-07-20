@@ -1,0 +1,6 @@
+
+diffuse_map = stage2/leaves_diffuse
+normal_map = stage2/leaves_normal
+ambient_map = stage2/leaves_ambient
+roughness_map = stage2/leaves_roughness
+

@@ -188,7 +188,8 @@ static void elly_begin_toe(Boss *b, int t) {
 	TIMER(&t);
 
 	AT(1) {
-		start_fall_over();
+		STAGE_BOOKMARK(fall-over);
+		stage6_bg_start_fall_over();
 		stage_unlock_bgm("stage6boss_phase2");
 		stage_start_bgm("stage6boss_phase3");
 	}

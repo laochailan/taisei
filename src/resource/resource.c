@@ -15,30 +15,32 @@
 #include "events.h"
 #include "taskmanager.h"
 
-#include "texture.h"
 #include "animation.h"
-#include "sfx.h"
 #include "bgm.h"
-#include "shader_object.h"
-#include "shader_program.h"
+#include "font.h"
+#include "material.h"
 #include "model.h"
 #include "postprocess.h"
+#include "sfx.h"
+#include "shader_object.h"
+#include "shader_program.h"
 #include "sprite.h"
-#include "font.h"
+#include "texture.h"
 
 #include "renderer/common/backend.h"
 
 ResourceHandler *_handlers[] = {
-	[RES_TEXTURE] = &texture_res_handler,
-	[RES_ANIM] = &animation_res_handler,
-	[RES_SFX] = &sfx_res_handler,
-	[RES_BGM] = &bgm_res_handler,
-	[RES_MODEL] = &model_res_handler,
-	[RES_POSTPROCESS] = &postprocess_res_handler,
-	[RES_SPRITE] = &sprite_res_handler,
-	[RES_FONT] = &font_res_handler,
-	[RES_SHADER_OBJECT] = &shader_object_res_handler,
-	[RES_SHADER_PROGRAM] = &shader_program_res_handler,
+	[RES_ANIM]              = &animation_res_handler,
+	[RES_BGM]               = &bgm_res_handler,
+	[RES_FONT]              = &font_res_handler,
+	[RES_MATERIAL]          = &material_res_handler,
+	[RES_MODEL]             = &model_res_handler,
+	[RES_POSTPROCESS]       = &postprocess_res_handler,
+	[RES_SFX]               = &sfx_res_handler,
+	[RES_SHADER_OBJECT]     = &shader_object_res_handler,
+	[RES_SHADER_PROGRAM]    = &shader_program_res_handler,
+	[RES_SPRITE]            = &sprite_res_handler,
+	[RES_TEXTURE]           = &texture_res_handler,
 };
 
 typedef enum ResourceStatus {

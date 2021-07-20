@@ -18,15 +18,22 @@ struct PBRParams {
 	float roughness;
 	float metallic;
 	vec3 fragPos;
+	mat4 inv_camera_transform;
 };
 
 struct PBRState {
 	PBRParams params;
-	vec3 V;	// fragment to view (normalized)
+	vec3 V; // fragment to view (normalized)
 	vec3 N; // fragment normal
 	float NdotV;
 	vec3 F0;
+	float roughness2;
+	float roughness4;
+	float geometryKfactor;
+	float geometryNdotVDenomTerm;
 };
+
+float PBR_GeometrySchlickGGXDenom(float NdotV, float k);
 
 PBRState PBR(PBRParams p) {
 	PBRState st;
@@ -35,30 +42,45 @@ PBRState PBR(PBRParams p) {
 	st.V = normalize(-p.fragPos);
 	st.NdotV = max(dot(st.N, st.V), 0.0);
 	st.F0 = mix(vec3(0.04), p.albedo, p.metallic);
+	st.roughness2 = p.roughness * p.roughness;
+	st.roughness4 = st.roughness2 * st.roughness2;
+	// st.geometryKfactor = st.roughness2 * 0.5;
+	st.geometryKfactor = (p.roughness + 1) * 0.125;
+	st.geometryNdotVDenomTerm = PBR_GeometrySchlickGGXDenom(st.NdotV, st.geometryKfactor);
 	return st;
 }
 
-float PBR_DistributionGGX(float NdotH, float roughness) {
-	float a = roughness * roughness;
-	float a2 = a * a;
+vec2 PBR_DistributionGGXFraction(float NdotH, float a2) {
+	// float a = roughness * roughness;
+	// float a2 = a * a;
 	float NdotH2 = NdotH * NdotH;
 
 	float num = a2;
 	float denom = NdotH2 * (a2 - 1.0) + 1.0;
 	denom = pi * denom * denom;
 
-	return num / denom;
+	return vec2(num, denom);
+}
+
+float PBR_DistributionGGX(float NdotH, float a2) {
+	vec2 d = PBR_DistributionGGXFraction(NdotH, a2);
+	return d.x / d.y;
+}
+
+float PBR_GeometrySchlickGGXDenom(float NdotV, float k) {
+	return mix(NdotV, 1, k);
 }
 
 float PBR_GeometrySchlickGGX(float NdotV, float k) {
-	return NdotV / mix(NdotV, 1, k);
+	return NdotV / PBR_GeometrySchlickGGXDenom(NdotV, k);
 }
 
-float PBR_GeometrySmith(float NdotV, float NdotL, float roughness) {
-	float r = roughness + 1.0;
-	float k = r * r * 0.125;
+float PBR_GeometrySmithDenom(float NdotV, float NdotL, float k) {
+	return PBR_GeometrySchlickGGXDenom(NdotL, k) * PBR_GeometrySchlickGGXDenom(NdotV, k);
+}
 
-	return PBR_GeometrySchlickGGX(NdotL, k) * PBR_GeometrySchlickGGX(NdotV, k);
+float PBR_GeometrySmith(float NdotV, float NdotL, float k) {
+	return NdotV * NdotL / PBR_GeometrySmithDenom(NdotV, NdotL, k);
 }
 
 vec3 PBR_FresnelSchlick(float cosTheta, vec3 F0) {
@@ -67,6 +89,14 @@ vec3 PBR_FresnelSchlick(float cosTheta, vec3 F0) {
 	float x5 = x2 * x2 * x;
 
     return mix(vec3(x5), vec3(1.0), F0);
+}
+
+vec3 PBR_FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+	float x = 1.0 - cosTheta;
+	float x2 = x * x;
+	float x5 = x2 * x2 * x;
+
+	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * x5;
 }
 
 vec3 PBR_PointLight(PBRState st, PointLight light) {
@@ -82,8 +112,12 @@ vec3 PBR_PointLight(PBRState st, PointLight light) {
 	float HdotV = max(dot(H, st.V), 0.0);
 	float NdotV = st.NdotV;
 
-	float NDF = PBR_DistributionGGX(NdotH, st.params.roughness);
-	float G = PBR_GeometrySmith(NdotV, NdotL, st.params.roughness);
+#if 0
+	/*
+	 * Unoptimized version of this function, for reference
+	 */
+	float NDF = PBR_DistributionGGX(NdotH, st.roughness4);
+	float G = PBR_GeometrySmith(NdotV, NdotL, st.geometryKfactor);
 	vec3 F = PBR_FresnelSchlick(HdotV, st.F0);
 
 	vec3 kS = F;
@@ -91,8 +125,68 @@ vec3 PBR_PointLight(PBRState st, PointLight light) {
 
 	vec3 diffuse = kD * st.params.albedo / pi;
 	vec3 specular = (NDF * G * kS) / max(4.0 * NdotV * NdotL, 0.001);
+	vec3 combined = diffuse + specular;
 
-	return (diffuse + specular) * radiance * NdotL;
+	return combined * radiance * NdotL;
+#else
+	/*
+	 * Optimized version
+	 */
+	vec2 NDF = PBR_DistributionGGXFraction(NdotH, st.roughness4);
+	vec3 F = PBR_FresnelSchlick(HdotV, st.F0);
+	float Gdenom = st.geometryNdotVDenomTerm * PBR_GeometrySchlickGGXDenom(NdotL, st.geometryKfactor);
+
+	vec3 diffuse = mix(0.3183098861837907, 0, st.params.metallic) * st.params.albedo;
+	vec3 specular = vec3(NDF.x / (4 * Gdenom * NDF.y));
+	vec3 combined = mix(diffuse, specular, F);
+
+	return combined * radiance * NdotL;
+#endif
+}
+
+vec3 PBR_ReflectionRay(PBRState st) {
+	return mat3(st.params.inv_camera_transform) * reflect(st.params.fragPos, st.params.normal);
+}
+
+vec3 PBR_EnvironmentLightFake(PBRState st, samplerCube envmap) {
+	vec3 reflected_ray = PBR_ReflectionRay(st);
+	vec3 reflection = texture(envmap, fixCubeCoord(reflected_ray)).rgb;
+	float r = (1 - st.params.roughness);
+	return (r * r) * reflection * mix(vec3(0.5), st.params.albedo, st.params.metallic);
+}
+
+vec3 PBR_EnvironmentLight(
+	PBRState st,
+	sampler2D brdf_lut,
+// 	samplerCube irradiance_map,
+	samplerCube prefiltered_cubemap
+) {
+	// Partial IBL implementation (TODO):
+	//  * No diffuse, specular only
+	//  * "Prefiltered" cubemap is not actually prefiltered - mipmaps are used as usual, and roughness is not taken into account. This makes reflections much sharper than they should be.
+
+	vec3 reflected_ray = PBR_ReflectionRay(st);
+	vec3 R = fixCubeCoord(reflected_ray);
+	vec3 F = PBR_FresnelSchlickRoughness(st.NdotV, st.F0, st.params.roughness);
+
+	// Diffuse
+#if 0
+	vec3 kS = F;
+	vec3 kD = 1.0 - kS;
+	kD *= 1.0 - st.params.metallic;
+	vec3 irradiance = texture(irradiance_map, st.N).rgb;
+	vec3 diffuse = irradiance * st.params.albedo;
+#endif
+
+	// Specular
+	const float MAX_REFLECTION_LOD = 8.0;  // TODO pass as uniform or use LOD query extension
+// 	vec3 reflection = textureLod(prefiltered_cubemap, R, st.params.roughness * MAX_REFLECTION_LOD).rgb;
+	vec3 reflection = texture(prefiltered_cubemap, R).rgb;
+	vec2 brdf = texture(brdf_lut, vec2(st.NdotV, st.params.roughness)).rg;
+	vec3 specular = reflection * (F * brdf.x + brdf.y);
+
+// 	return kD * diffuse + specular;
+	return specular;
 }
 
 vec3 PBR_TonemapReinhard(vec3 color) {

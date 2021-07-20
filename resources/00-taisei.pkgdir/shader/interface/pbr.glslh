@@ -4,14 +4,33 @@
 #include "standard.glslh"
 #include "../lib/pbr.glslh"
 
-UNIFORM(1) sampler2D roughness_map;
-UNIFORM(2) sampler2D normal_map;
-UNIFORM(3) sampler2D ambient_map;
-UNIFORM(4) float metallic;
-UNIFORM(5) vec3 ambient_color; // modulates ambient map
-UNIFORM(6) int light_count;
-UNIFORM(7) vec3 light_positions[PBR_MAX_LIGHTS];
-UNIFORM(13) vec3 light_colors[PBR_MAX_LIGHTS]; // layout-id also depends on PBR_MAX_LIGHTS
+#define PBR_FEATURE_DIFFUSE_MAP         1
+#define PBR_FEATURE_NORMAL_MAP          2
+#define PBR_FEATURE_AMBIENT_MAP         4
+#define PBR_FEATURE_ROUGHNESS_MAP       8
+#define PBR_FEATURE_ENVIRONMENT_MAP    16
+#define PBR_FEATURE_DEPTH_MAP          32
+
+UNIFORM(1) int features_mask;
+
+UNIFORM(2) sampler2D diffuse_map;
+UNIFORM(3) sampler2D normal_map;
+UNIFORM(4) sampler2D ambient_map;
+UNIFORM(5) sampler2D roughness_map;
+UNIFORM(6) samplerCube environment_map;
+UNIFORM(7) sampler2D depth_map;
+UNIFORM(8) sampler2D ibl_brdf_lut;
+
+// These either modulate their respective maps, or are used instead of them
+UNIFORM(9) vec4 diffuseRGB_metallicA;
+UNIFORM(10) vec4 ambientRGB_roughnessA;
+UNIFORM(11) float depth_scale;
+
+UNIFORM(12) mat4 inv_camera_transform;   // only used if PBR_FEATURE_ENVIRONMENT_MAP is set
+
+UNIFORM(13) int light_count;
+UNIFORM(14) vec3 light_positions[PBR_MAX_LIGHTS];
+UNIFORM(20) vec3 light_colors[PBR_MAX_LIGHTS]; // layout-id also depends on PBR_MAX_LIGHTS
 
 VARYING(3) vec3 pos;
 VARYING(4) vec3 tangent;

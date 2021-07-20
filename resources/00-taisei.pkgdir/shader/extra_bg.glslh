@@ -1,4 +1,6 @@
 
+#include "lib/util.glslh"
+
 vec2 code_transform_uv(float num_segs, float inv_num_segs, vec2 uv) {
 	uv *= inv_num_segs;
 	float cur_segment = floor(mod(uv.y, num_segs)) * inv_num_segs;
@@ -53,10 +55,25 @@ vec4 sample_background(
 	code_uv.y += t * 0.2;
 
 	vec4 background = texture(sampler_bg, bg_uv);
-	vec4 background_binary = texture(sampler_bg_binary, bg_binary_uv);
+	float background_binary = texture(sampler_bg_binary, bg_binary_uv).r;
 	vec4 code = sample_code(sampler_code, code_tex_params, code_uv) * r;
 
-	background = background * background_binary + code;
+	background = background * background_binary;
+
+	vec3 hsv = rgb2hsv(background.rgb);
+	hsv.y *= 0.5 + 0.5 * uv.y;
+	hsv.z *= 0.6 + 0.4 * uv.y;
+	background.rgb = hsv2rgb(hsv);
+
+	hsv = rgb2hsv(code.rgb);
+	float xf = 1.0 - 4.0 * (uv.x - uv.x * uv.x);
+	float yf = 1.0 - 4.0 * (uv.y - uv.y * uv.y);
+	hsv.x += 0.1 * yf - 0.1 * (xf * xf * xf * xf) * (1.0 - yf * yf);
+	hsv.y *= 0.5 + 0.5 * (1 - pow(1 - uv.y, 2.0));
+	code.rgb = hsv2rgb(hsv);
+	code.rgb *= (1.0 - yf * yf);
+
+ 	background += code;
 	background.rgb = pow(background.rgb, mix(1 - vec3(1.0, 0.5, 0.3), vec3(1), r));
 
 	return background;

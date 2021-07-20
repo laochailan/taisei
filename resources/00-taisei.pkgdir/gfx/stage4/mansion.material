@@ -1,0 +1,5 @@
+
+ambient_map = stage4/mansion_ambient
+diffuse_map = stage4/mansion_diffuse
+normal_map = stage4/mansion_normal
+roughness_map = stage4/mansion_roughness

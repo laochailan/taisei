@@ -1,0 +1,5 @@
+
+ambient_map = stage4/corridor_ambient
+diffuse_map = stage4/corridor_diffuse
+normal_map = stage4/corridor_normal
+roughness_map = stage4/corridor_roughness

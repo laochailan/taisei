@@ -1,0 +1,6 @@
+
+diffuse_map = stage2/branch_diffuse
+normal_map = stage2/branch_normal
+ambient_map = stage2/branch_ambient
+roughness_map = stage2/branch_roughness
+

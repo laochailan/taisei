@@ -1,0 +1,6 @@
+
+roughness_map = stage5/metal_roughness
+diffuse_color = 1 0.293 0.057
+ambient_color = 0 0 0
+metallic = 1
+

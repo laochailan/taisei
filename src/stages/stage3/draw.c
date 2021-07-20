@@ -17,6 +17,12 @@
 
 MODERNIZE_THIS_FILE_AND_REMOVE_ME
 
+static Stage3DrawData *stage3_draw_data;
+
+Stage3DrawData *stage3_get_draw_data(void) {
+	return NOT_NULL(stage3_draw_data);
+}
+
 static uint stage3_bg_pos(Stage3D *s3d, vec3 pos, float maxrange) {
 	vec3 p = {
 		0,
@@ -29,8 +35,7 @@ static uint stage3_bg_pos(Stage3D *s3d, vec3 pos, float maxrange) {
 	return linear3dpos(s3d, pos, maxrange, p, r);
 }
 
-static void stage3_bg_setup_pbr_lighting(void) {
-	Camera3D *cam = &stage_3d_context.cam;
+static void stage3_bg_setup_pbr_lighting(Camera3D *cam) {
 	PointLight3D lights[] = {
 		// TODO animate colors
 		{ { 0, 0, 10000 }, { 10, 42, 30 } },
@@ -60,44 +65,29 @@ static void stage3_bg_setup_pbr_lighting(void) {
 	}
 
 	camera3d_set_point_light_uniforms(cam, ARRAY_SIZE(lights), lights);
+}
 
-	real f = 1/(1+global.frames/1000.);
-	r_uniform_vec3("ambient_color",f,f,sqrt(f));
+static void stage3_bg_setup_pbr_env(Camera3D *cam, PBREnvironment *env) {
+	stage3_bg_setup_pbr_lighting(cam);
+
+	float f = 1.0f / (1.0f + global.frames / 1000.0f);
+	glm_vec3_copy((vec3) { f, f, sqrtf(f) }, env->ambient_color);
 }
 
 static void stage3_bg_ground_draw(vec3 pos) {
 	r_state_push();
 	r_mat_mv_push();
-	r_mat_mv_translate(pos[0], pos[1], pos[2]);
-
+	r_mat_mv_translate_v(pos);
 
 	r_shader("pbr");
-	//r_uniform_vec3_array("light_positions[0]", 0, 1, &stage_3d_context.cx);
 
-	stage3_bg_setup_pbr_lighting();
+	PBREnvironment env = { 0 };
+	stage3_bg_setup_pbr_env(&stage_3d_context.cam, &env);
 
-	r_uniform_float("metallic", 0);
-	r_uniform_sampler("tex", "stage3/ground_diffuse");
-	r_uniform_sampler("roughness_map", "stage3/ground_roughness");
-	r_uniform_sampler("normal_map", "stage3/ground_normal");
-	r_uniform_sampler("ambient_map", "stage3/ground_ambient");
+	pbr_draw_model(&stage3_draw_data->models.ground, &env);
+	pbr_draw_model(&stage3_draw_data->models.trees, &env);
+	pbr_draw_model(&stage3_draw_data->models.rocks, &env);
 
-
-	r_draw_model("stage3/ground");
-
-	r_uniform_sampler("tex", "stage3/trees_diffuse");
-	r_uniform_sampler("roughness_map", "stage3/trees_roughness");
-	r_uniform_sampler("normal_map", "stage3/trees_normal");
-	r_uniform_sampler("ambient_map", "stage3/trees_ambient");
-
-	r_draw_model("stage3/trees");
-
-	r_uniform_sampler("tex", "stage3/rocks_diffuse");
-	r_uniform_sampler("roughness_map", "stage3/rocks_roughness");
-	r_uniform_sampler("normal_map", "stage3/rocks_normal");
-	r_uniform_sampler("ambient_map", "stage3/rocks_ambient");
-
-	r_draw_model("stage3/rocks");
 	r_mat_mv_pop();
 	r_state_pop();
 }
@@ -105,22 +95,15 @@ static void stage3_bg_ground_draw(vec3 pos) {
 static void stage3_bg_leaves_draw(vec3 pos) {
 	r_state_push();
 	r_mat_mv_push();
-	r_mat_mv_translate(pos[0], pos[1], pos[2]);
-	r_mat_mv_translate(0,0,-0.0002);
-
+	r_mat_mv_translate_v(pos);
+	r_mat_mv_translate(0, 0, -0.0002);
 
 	r_shader("pbr");
 
-	stage3_bg_setup_pbr_lighting();
+	PBREnvironment env = { 0 };
+	stage3_bg_setup_pbr_env(&stage_3d_context.cam, &env);
 
-	r_uniform_float("metallic", 0);
-	r_uniform_sampler("tex", "stage3/leaves_diffuse");
-	r_uniform_sampler("roughness_map", "stage3/leaves_roughness");
-	r_uniform_sampler("normal_map", "stage3/leaves_normal");
-	r_uniform_sampler("ambient_map", "stage3/leaves_ambient");
-
-
-	r_draw_model("stage3/leaves");
+	pbr_draw_model(&stage3_draw_data->models.leaves, &env);
 
 	r_mat_mv_pop();
 	r_state_pop();
@@ -132,10 +115,17 @@ void stage3_drawsys_init(void) {
 	stage_3d_context.cam.rot.v[0] = 80;
 	stage_3d_context.cam.vel[1] = 0.1;
 	stage_3d_context.cam.vel[2] = 0.05;
+
+	stage3_draw_data = calloc(1, sizeof(*stage3_draw_data));
+
+	pbr_load_model(&stage3_draw_data->models.ground, "stage3/ground", "stage3/ground");	pbr_load_model(&stage3_draw_data->models.leaves, "stage3/leaves", "stage3/leaves");
+	pbr_load_model(&stage3_draw_data->models.rocks,  "stage3/rocks",  "stage3/rocks");
+	pbr_load_model(&stage3_draw_data->models.trees,  "stage3/trees",  "stage3/trees");
 }
 
 void stage3_drawsys_shutdown(void) {
 	stage3d_shutdown(&stage_3d_context);
+	free(stage3_draw_data);
 }
 
 static bool stage3_fog(Framebuffer *fb) {

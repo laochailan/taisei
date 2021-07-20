@@ -191,3 +191,25 @@ bool kvparser_deprecation(const char *key, const char *val, void *data) {
 	log_warn("'%s' is deprecated, use '%s' instead", key, alt);
 	return true;
 }
+
+bool kvparser_vec3(const char *key, const char *val, void *data) {
+	float *out = data;
+	char *p = (char*)val;
+
+	out[0] = strtof(p, &p);
+	if(!isspace(*p)) goto fail;
+	out[1] = strtof(p, &p);
+	if(!isspace(*p)) goto fail;
+	out[2] = strtof(p, &p);
+
+	while(isspace(*p))
+		++p;
+
+	if(*p == 0) {
+		return true;
+	}
+
+fail:
+	log_error("Invalid vec3 value for '%s': %s", key, val);
+	return false;
+}

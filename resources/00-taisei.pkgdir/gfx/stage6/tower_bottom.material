@@ -1,0 +1,5 @@
+
+ambient_map = stage6/tower_bottom_ambient
+diffuse_map = stage6/tower_bottom_diffuse
+normal_map = stage6/tower_bottom_normal
+roughness_map = stage6/tower_bottom_roughness

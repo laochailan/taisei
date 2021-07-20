@@ -1,0 +1,48 @@
+
+// Based on https://learnopengl.com/Advanced-Lighting/Parallax-Mapping
+
+#ifndef PARALLAX_MIN_LAYERS
+	#define PARALLAX_MIN_LAYERS 16.0
+#endif
+
+#ifndef PARALLAX_MAX_LAYERS
+	#define PARALLAX_MAX_LAYERS 64.0
+#endif
+
+vec2 parallaxOcclusionMap(sampler2D depthMap, float depthScale, vec2 texCoord, vec3 viewDir) {
+	float layersWeight = max(dot(vec3(0.0, 0.0, 1.0), viewDir), 0.0);
+	float numLayers = mix(PARALLAX_MAX_LAYERS, PARALLAX_MIN_LAYERS, layersWeight);
+
+	float layerDepth = 1.0 / numLayers;
+	float currentLayerDepth = 0.0;
+
+	// the amount to shift the texture coordinates per layer (from vector P)
+	vec2 P = viewDir.xy * depthScale;
+	vec2 deltaTexCoords = P / numLayers;
+
+	vec2 currentTexCoords = texCoord;
+	float currentDepthMapValue = texture(depthMap, currentTexCoords).r;
+
+	float prevDepth = currentDepthMapValue;
+
+	while(currentLayerDepth < currentDepthMapValue) {
+		prevDepth = currentDepthMapValue;
+		// shift texture coordinates along direction of P
+		currentTexCoords -= deltaTexCoords;
+		// get depthmap value at current texture coordinates
+		currentDepthMapValue = texture(depthMap, currentTexCoords).r;
+		// get depth of next layer
+		currentLayerDepth += layerDepth;
+	}
+
+	// get texture coordinates before collision (reverse operations)
+	vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
+
+	// get depth after and before collision for linear interpolation
+	float afterDepth  = currentDepthMapValue - currentLayerDepth;
+	float beforeDepth = prevDepth - currentLayerDepth + layerDepth;
+
+	// interpolation of texture coordinates
+	float weight = afterDepth / (afterDepth - beforeDepth);
+	return mix(currentTexCoords, prevTexCoords, weight);
+}

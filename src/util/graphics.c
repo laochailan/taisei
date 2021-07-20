@@ -186,3 +186,4 @@ void draw_framebuffer_attachment(Framebuffer *fb, double width, double height, F
 void draw_framebuffer_tex(Framebuffer *fb, double width, double height) {
 	draw_framebuffer_attachment(fb, width, height, FRAMEBUFFER_ATTACH_COLOR0);
 }
+

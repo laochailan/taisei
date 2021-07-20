@@ -10,6 +10,7 @@
 
 #include "timeline.h"
 #include "stage5.h"
+#include "background_anim.h"
 #include "nonspells/nonspells.h"
 #include "spells/spells.h"
 
@@ -252,6 +253,8 @@ static Boss *stage5_spawn_midboss(void) {
 
 	boss_engage(b);
 	b->attacks->starttime = global.frames;	// HACK: thwart attack delay
+	
+	stage5_bg_raise_lightning();
 
 	return b;
 }
@@ -550,6 +553,10 @@ void stage5_events(void) {
 	FROM_TO(6100, 6350, 60-12*global.diff) {
 		tsrand_fill(2);
 		create_enemy1c(VIEWPORT_W+200.0*I*afrand(0), 500, Swirl, stage5_miner, -3+2.0*I*afrand(1));
+	}
+
+	AT(6300) {
+		stage5_bg_lower_camera();
 	}
 
 	FROM_TO(6300, 6350, 50) {

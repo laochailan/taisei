@@ -1,0 +1,5 @@
+
+ambient_map = stage6/rim_ambient
+diffuse_map = stage6/rim_diffuse
+normal_map = stage6/rim_normal
+roughness_map = stage6/rim_roughness

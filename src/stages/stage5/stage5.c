@@ -51,6 +51,7 @@ struct stage5_spells_s stage5_spells = {
 
 static void stage5_start(void) {
 	stage5_drawsys_init();
+	stage5_bg_init_fullstage();
 }
 
 static void stage5_preload(void) {
@@ -64,10 +65,23 @@ static void stage5_preload(void) {
 		"stage5/spell_bg",
 		"stage5/spell_clouds",
 		"stage5/spell_lightning",
-		"stage5/tower",
+	NULL);
+	preload_resources(RES_TEXTURE, RESF_DEFAULT,
+		"stage5/envmap",
+	NULL);
+	preload_resources(RES_MATERIAL, RESF_DEFAULT,
+		"stage5/metal",
+		"stage5/stairs",
+		"stage5/wall",
+	NULL);
+	preload_resources(RES_MODEL, RESF_DEFAULT,
+		"stage5/stairs",
+		"stage5/wall",
+		"stage5/metal",
 	NULL);
 	preload_resources(RES_SHADER_PROGRAM, RESF_DEFAULT,
-		"tower_light",
+		"pbr",
+		"zbuf_fog",
 	NULL);
 	preload_resources(RES_SHADER_PROGRAM, RESF_OPTIONAL,
 		"lasers/linear",
@@ -78,9 +92,6 @@ static void stage5_preload(void) {
 	preload_resources(RES_ANIM, RESF_DEFAULT,
 		"boss/iku",
 		"boss/iku_mid",
-	NULL);
-	preload_resources(RES_MODEL, RESF_DEFAULT,
-		"tower",
 	NULL);
 	preload_resources(RES_SFX, RESF_OPTIONAL,
 		"boom",
@@ -94,7 +105,8 @@ static void stage5_end(void) {
 }
 
 static void stage5_spellpractice_start(void) {
-	stage5_start();
+	stage5_drawsys_init();
+	stage5_bg_init_spellpractice();
 
 	global.boss = stage5_spawn_iku(BOSS_DEFAULT_SPAWN_POS);
 	boss_add_attack_from_info(global.boss, global.stage->spell, true);
@@ -103,16 +115,13 @@ static void stage5_spellpractice_start(void) {
 	stage_start_bgm("stage5boss");
 }
 
-ShaderRule stage5_shaders[] = { NULL };
-
 StageProcs stage5_procs = {
 	.begin = stage5_start,
 	.preload = stage5_preload,
 	.end = stage5_end,
 	.draw = stage5_draw,
-	.update = stage5_update,
 	.event = stage5_events,
-	.shader_rules = stage5_shaders,
+	.shader_rules = stage5_bg_effects,
 	.spellpractice_procs = &stage5_spell_procs,
 };
 
@@ -121,6 +130,5 @@ StageProcs stage5_spell_procs = {
 	.preload = stage5_preload,
 	.end = stage5_end,
 	.draw = stage5_draw,
-	.update = stage5_update,
-	.shader_rules = stage5_shaders,
+	.shader_rules = stage5_bg_effects,
 };

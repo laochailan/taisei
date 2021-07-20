@@ -13,6 +13,19 @@
 
 #include "util/fbpair.h"
 #include "stagedraw.h"
+#include "stageutils.h"
+
+typedef struct Stage3DrawData {
+	struct {
+		PBRModel ground;
+		PBRModel leaves;
+		PBRModel rocks;
+		PBRModel trees;
+	} models;
+} Stage3DrawData;
+
+Stage3DrawData *stage3_get_draw_data(void)
+	attr_returns_nonnull attr_returns_max_aligned;
 
 void stage3_drawsys_init(void);
 void stage3_drawsys_shutdown(void);

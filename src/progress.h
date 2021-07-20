@@ -68,6 +68,8 @@ typedef enum ProgressBGMID {
 	PBGM_BONUS0,  // old Iku theme
 	PBGM_BONUS1,  // Scuttle theme
 	PBGM_GAMEOVER,
+	PBGM_STAGEX,
+	PBGM_STAGEX_BOSS,
 } ProgressBGMID;
 
 struct UnknownCmd;

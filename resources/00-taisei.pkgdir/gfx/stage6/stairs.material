@@ -1,0 +1,8 @@
+
+ambient_map = stage6/stairs_ambient
+diffuse_map = stage6/stairs_diffuse
+normal_map = stage6/stairs_normal
+roughness_map = stage6/stairs_roughness
+
+metallic = 1
+

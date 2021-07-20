@@ -575,6 +575,7 @@ TASK(dialog_fixup_timer, NO_ARGS) {
 
 void stage_begin_dialog(Dialog *d) {
 	assert(global.dialog == NULL);
+	assert(!global.gameover);
 	global.dialog = d;
 	dialog_init(d);
 	INVOKE_TASK_WHEN(&d->events.fadeout_began, dialog_fixup_timer);

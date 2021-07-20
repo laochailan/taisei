@@ -86,21 +86,9 @@ static void stage4_preload(void) {
 	portrait_preload_base_sprite("kurumi", NULL, RESF_DEFAULT);
 	portrait_preload_face_sprite("kurumi", "normal", RESF_DEFAULT);
 	preload_resources(RES_BGM, RESF_OPTIONAL, "stage4", "stage4boss", NULL);
-	preload_resources(RES_SPRITE, RESF_DEFAULT,
+	preload_resources(RES_TEXTURE, RESF_DEFAULT,
 		"stage4/kurumibg1",
 		"stage4/kurumibg2",
-		"stage4/ground_ambient",
-		"stage4/ground_diffuse",
-		"stage4/ground_roughness",
-		"stage4/ground_normal",
-		"stage4/mansion_ambient",
-		"stage4/mansion_diffuse",
-		"stage4/mansion_roughness",
-		"stage4/mansion_normal",
-		"stage4/corridor_ambient",
-		"stage4/corridor_diffuse",
-		"stage4/corridor_roughness",
-		"stage4/corridor_normal",
 	NULL);
 	preload_resources(RES_SPRITE, RESF_DEFAULT,
 		"stage6/scythe", // Stage 6 is intentional
@@ -118,10 +106,15 @@ static void stage4_preload(void) {
 	preload_resources(RES_ANIM, RESF_DEFAULT,
 		"boss/kurumi",
 	NULL);
-	preload_resources(RES_MODEL, RESF_DEFAULT,
-		"stage4/mansion",
-		"stage4/ground",
+	preload_resources(RES_MATERIAL, RESF_DEFAULT,
 		"stage4/corridor",
+		"stage4/ground",
+		"stage4/mansion",
+	NULL);
+	preload_resources(RES_MODEL, RESF_DEFAULT,
+		"stage4/corridor",
+		"stage4/ground",
+		"stage4/mansion",
 	NULL);
 	preload_resources(RES_TEXTURE, RESF_OPTIONAL,
 		"part/sinewave",

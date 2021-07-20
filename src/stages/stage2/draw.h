@@ -12,11 +12,20 @@
 #include "taisei.h"
 
 #include "stagedraw.h"
+#include "stageutils.h"
 
 typedef struct Stage2DrawData {
 	struct {
 		Color color;
 	} fog;
+
+	struct {
+		PBRModel branch;
+		PBRModel grass;
+		PBRModel ground;
+		PBRModel leaves;
+		PBRModel rocks;
+	} models;
 
 	real hina_lights;
 } Stage2DrawData;

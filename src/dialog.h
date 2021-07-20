@@ -14,6 +14,7 @@
 #include "color.h"
 #include "resource/sprite.h"
 #include "coroutine.h"
+#include "renderer/api.h"
 
 typedef enum DialogSide {
 	DIALOG_SIDE_RIGHT,
@@ -34,6 +35,8 @@ typedef struct DialogActor {
 	const char *face;
 
 	Sprite composite;
+
+	void (*draw_dynamic_overlay)(SpriteParams*);
 
 	float opacity;
 	float target_opacity;

@@ -12,6 +12,7 @@
 #include "taisei.h"
 
 #include "util.h"
+#include "resource/material.h"
 #include "global.h" // remove when STAGE3D_DEFAULT_ASPECT aspect is removed
 
 typedef struct Stage3D Stage3D;
@@ -49,6 +50,25 @@ typedef struct PointLight3D {
 // NOTE: should match PBR_MAX_LIGHTS in lib/pbr.glslh
 #define STAGE3D_MAX_LIGHTS 6
 
+// NOTE: should match definitions in interface/pbr.glslh
+#define PBR_FEATURE_DIFFUSE_MAP         1
+#define PBR_FEATURE_NORMAL_MAP          2
+#define PBR_FEATURE_AMBIENT_MAP         4
+#define PBR_FEATURE_ROUGHNESS_MAP       8
+#define PBR_FEATURE_ENVIRONMENT_MAP    16
+#define PBR_FEATURE_DEPTH_MAP          32
+
+typedef struct PBREnvironment {
+	mat4 cam_inverse_transform;
+	Texture *environment_map;
+	vec3 ambient_color;
+} PBREnvironment;
+
+typedef struct PBRModel {
+	Model *mdl;
+	PBRMaterial *mat;
+} PBRModel;
+
 #define STAGE3D_DEPRECATED(...) attr_deprecated(__VA_ARGS__)
 
 struct Stage3D {
@@ -77,12 +97,14 @@ void stage3d_init(Stage3D *s, uint pos_buffer_size);
 void stage3d_update(Stage3D *s);
 void stage3d_shutdown(Stage3D *s);
 void stage3d_apply_transforms(Stage3D *s, mat4 mat);
+void stage3d_apply_inverse_transforms(Stage3D *s, mat4 mat);
 void stage3d_draw_segment(Stage3D *s, SegmentPositionRule pos_rule, SegmentDrawRule draw_rule, float maxrange);
 void stage3d_draw(Stage3D *s, float maxrange, uint nsegments, const Stage3DSegment segments[nsegments]);
 
 void camera3d_init(Camera3D *cam) attr_nonnull(1);
 void camera3d_update(Camera3D *cam) attr_nonnull(1);
 void camera3d_apply_transforms(Camera3D *cam, mat4 mat) attr_nonnull(1, 2);
+void camera3d_apply_inverse_transforms(Camera3D *cam, mat4 mat) attr_nonnull(1, 2);
 void camera3d_unprojected_ray(Camera3D *cam, cmplx pos, vec3 dest) attr_nonnull(1, 3);
 
 void camera3d_set_point_light_uniforms(
@@ -98,6 +120,10 @@ void camera3d_fill_point_light_uniform_vectors(
 	vec3 out_lpos[num_lights],
 	vec3 out_lrad[num_lights]
 ) attr_nonnull(1, 3, 4);
+
+void pbr_set_material_uniforms(const PBRMaterial *m, const PBREnvironment *env) attr_nonnull_all;
+void pbr_draw_model(const PBRModel *pmdl, const PBREnvironment *env) attr_nonnull_all;
+void pbr_load_model(PBRModel *pmdl, const char *model_name, const char *mat_name);
 
 uint linear3dpos(Stage3D *s3d, vec3 q, float maxrange, vec3 p, vec3 r);
 uint single3dpos(Stage3D *s3d, vec3 q, float maxrange, vec3 p);

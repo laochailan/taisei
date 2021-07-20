@@ -827,7 +827,7 @@ uint32_t progress_times_any_good_ending_achieved(void) {
 }
 
 static ProgressBGMID progress_bgm_id(const char *bgm) {
-	static const char* map[] = {
+	static const char *map[] = {
 		[PBGM_MENU]         = "menu",
 		[PBGM_STAGE1]       = "stage1",
 		[PBGM_STAGE1_BOSS]  = "stage1boss",
@@ -848,6 +848,8 @@ static ProgressBGMID progress_bgm_id(const char *bgm) {
 		[PBGM_BONUS0]       = "bonus0",
 		[PBGM_BONUS1]       = "scuttle",
 		[PBGM_GAMEOVER]     = "gameover",
+		[PBGM_STAGEX]       = "stagex",
+		[PBGM_STAGEX_BOSS]  = "stagexboss",
 	};
 
 	for(int i = 0; i < ARRAY_SIZE(map); ++i) {

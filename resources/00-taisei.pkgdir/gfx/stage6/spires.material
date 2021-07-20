@@ -1,0 +1,7 @@
+
+diffuse_map = stage6/spires_diffuse
+normal_map = stage6/spires_normal
+roughness_map = stage6/spires_roughness
+
+ambient_color = 0 0 0
+

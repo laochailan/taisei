@@ -16,25 +16,40 @@
 #include "stageutils.h"
 
 enum {
-	NUM_STARS = 200
+	NUM_STARS = 400
 };
 
 typedef struct Stage6DrawData {
-
 	struct {
-		float position[3*NUM_STARS];
+		vec3 position[NUM_STARS];
 	} stars;
 
 	struct {
-		int frames;
-	} fall_over;
+		float angular_velocity;
+		float radius;
+	} stair_ascent;
 
 	struct {
 		Framebuffer *aux_fb;
 		FBPair fbpair;
 	} baryon;
 
+	struct {
+		PBRModel rim;
+		PBRModel spires;
+		PBRModel stairs;
+		PBRModel tower;
+		PBRModel tower_bottom;
+
+		// these don't use pbr materials
+		Model *calabi_yau_quintic;
+		Model *top_plate;
+	} models;
+
+	Texture *envmap;
 } Stage6DrawData;
+
+extern ShaderRule stage6_bg_effects[];
 
 Stage6DrawData* stage6_get_draw_data(void);
 
@@ -47,9 +62,6 @@ void baryon(Enemy*, int, bool);
 
 extern ShaderRule stage6_bg_effects[];
 extern ShaderRule stage6_postprocess[];
-
-uint stage6_towerwall_pos(Stage3D *s3d, vec3 pos, float maxrange);
-void stage6_towerwall_draw(vec3 pos);
 
 void elly_spellbg_toe(Boss*, int);
 void elly_spellbg_modern_dark(Boss*, int);
